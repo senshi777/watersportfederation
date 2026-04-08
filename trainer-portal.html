@@ -6,6 +6,43 @@
 <title>Trainer Portal - Water Sport Federation</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPA_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
+var SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
+var supaClient = null;
+function getSupabase() {
+  if (!supaClient && window.supabase) {
+    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  }
+  return supaClient;
+}
+
+async function saveToSupabase(data) {
+  var db = getSupabase();
+  if (!db) { console.warn('Supabase not loaded'); return; }
+  var record = {
+    type: data.type,
+    name: data.name,
+    level: data.level || data.specialty || null,
+    cert_id: data.no,
+    issued: data.date,
+    expires: data.exp,
+    country: data.country || null,
+    nationality: data.nationality || null,
+    dob: data.dob || null,
+    trainer_name: data.trainerName || null,
+    trainer_no: currentTrainer ? currentTrainer.no : null,
+    status: 'active'
+  };
+  var result = await db.from('members').upsert(record, {onConflict: 'cert_id'});
+  if (result.error) {
+    console.warn('Supabase save error:', result.error.message);
+  } else {
+    console.log('Saved to Supabase:', data.no);
+  }
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -136,9 +173,11 @@ function generateCert() {
   var name=fn+" "+ln;
   var parts=dt.split("/");
   var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
-  certs.unshift({type:"cert",name:name,level:lv,no:cn,date:dt,exp:exp,photo:currentPhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0});
+  var certData = {type:"cert",name:name,level:lv,no:cn,date:dt,exp:exp,photo:currentPhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0};
+  certs.unshift(certData);
   refreshList();
   showDoc(0);
+  saveToSupabase(certData);
   clearCertForm();
 }
 
@@ -154,9 +193,11 @@ function generateLicense() {
   var name=fn+" "+ln;
   var parts=dt.split("/");
   var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
-  certs.unshift({type:"license",name:name,specialty:sp,no:cn,date:dt,exp:exp,dob:dob,nationality:nat,photo:currentLicensePhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0});
+  var licData = {type:"license",name:name,specialty:sp,no:cn,date:dt,exp:exp,dob:dob,nationality:nat,photo:currentLicensePhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0};
+  certs.unshift(licData);
   refreshList();
   showDoc(0);
+  saveToSupabase(licData);
   clearLicenseForm();
 }
 
@@ -742,70 +783,126 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
   </div>
   </div>
 
-  <!-- LICENSE VIEW -->
+  <!-- LICENSE VIEW - Double sided card -->
   <div id="licView" style="display:none">
-  <div class="license-doc">
-    <div class="lic-border"></div>
-    <div class="lic-corner tl"></div><div class="lic-corner tr"></div>
-    <div class="lic-corner bl"></div><div class="lic-corner br"></div>
-    <div class="lic-left-stripe"></div>
-    <div class="lic-left-stripe-pattern"></div>
-    <div class="lic-left-content">
-      <div class="lic-left-emblem">WSF<br><span style="font-size:.42rem;opacity:.7">CERTIFIED</span></div>
-      <div>
-        <div class="lic-left-title">Teaching<br>License</div>
-        <div style="height:8px"></div>
-        <div class="lic-left-auth">Authorized to Teach</div>
-      </div>
-      <div class="lic-tr-photo-area">
-        <div class="lic-tr-photo">
-          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);text-align:center;padding:4px">Trainer<br>Photo</div>
-        </div>
-        <div class="lic-tr-photo-label">Issuing Trainer</div>
-      </div>
-      <div class="lic-left-stars" id="LTRSTARS"></div>
-      <div class="lic-valid-badge">VALID</div>
-    </div>
-    <div class="lic-main">
-      <div class="lic-header">
-        <div>
-          <div class="lic-org-name">Water Sport Federation</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:.62rem;color:rgba(13,74,138,.55);letter-spacing:.08em">watersportfederation.org &nbsp;|&nbsp; Swiss NPO</div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start">
-          <div class="lic-photo"><img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><div class="lic-photo-ph" id="LCPP">Holder<br>Photo</div></div>
-          <div>
-            <div class="lic-title-badge">Teaching License</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#0a2558;line-height:1;margin-top:6px" id="LNAME">-</div>
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.1em;color:#1565c0;margin-top:2px" id="LSPEC">-</div>
-          </div>
-        </div>
-      </div>
-      <div class="lic-fields">
-        <div class="lic-field"><div class="lic-field-label">License No.</div><div class="lic-field-val gold" id="LNO">-</div></div>
-        <div class="lic-field"><div class="lic-field-label">Date of Birth</div><div class="lic-field-val" id="LDOB2">-</div></div>
-        <div class="lic-field"><div class="lic-field-label">Issue Date</div><div class="lic-field-val" id="LDATE">-</div></div>
-        <div class="lic-field"><div class="lic-field-label">Valid Until</div><div class="lic-field-val" style="color:var(--gold)" id="LEXP2">-</div></div>
-        <div class="lic-field"><div class="lic-field-label">Nationality</div><div class="lic-field-val" id="LNAT2">-</div></div>
-        <div class="lic-field"><div class="lic-field-label">Issued By Trainer</div><div class="lic-field-val" id="LTRNAME">-</div></div>
-      </div>
-      <div class="lic-bottom">
-        <div class="lic-sig-block">
-          <div class="lic-sig-name">Mohammad Almassri</div>
-          <div class="lic-sig-title">President - Water Sport Federation</div>
-          <div style="margin-top:4px;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;color:rgba(13,74,138,.45);letter-spacing:.08em" id="LTRNO">-</div>
-        </div>
-        <div class="lic-qr-area">
-          <div class="lic-qrb" id="LQRCODE"></div>
-          <div class="lic-qrl">Scan to verify<br>watersportfederation.org</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>
 
-</div>
+    <!-- FRONT SIDE label -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
+
+    <!-- FRONT SIDE -->
+    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
+      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
+      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3">Water Sport Federation WSF Water Sport Federation WSF</div>
+      <!-- WSF Logo top left -->
+      <div style="position:absolute;top:18px;left:20px;width:88px;height:88px;z-index:10">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88">
+          <defs><linearGradient id="llg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5e070"/><stop offset="50%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07020"/></linearGradient></defs>
+          <circle cx="80" cy="80" r="72" fill="none" stroke="url(#llg)" stroke-width="2.5"/>
+          <circle cx="80" cy="80" r="63" fill="#0d1f3c"/>
+          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="url(#llg)" letter-spacing="3">WSF</text>
+          <path d="M48,108 Q66,100 80,108 Q94,116 112,108" fill="none" stroke="#c9a84c" stroke-width="1.5" stroke-opacity="0.7"/>
+          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
+          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
+          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
+          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
+        </svg>
+      </div>
+      <!-- Org name -->
+      <div style="position:absolute;top:28px;left:120px;right:200px;z-index:10">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:#f0d980;letter-spacing:.04em;line-height:1.2">Water Sport Federation</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.6);margin-top:3px">watersportfederation.org &nbsp;&#183;&nbsp; Swiss NPO</div>
+        <div style="margin-top:6px;display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:#c9a84c;padding:2px 10px">Teaching License</div>
+      </div>
+      <div style="position:absolute;top:112px;left:20px;right:20px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.5),rgba(201,168,76,.9),rgba(201,168,76,.5),transparent);z-index:10"></div>
+      <!-- Holder photo -->
+      <div style="position:absolute;top:126px;left:24px;width:120px;height:150px;background:rgba(201,168,76,.06);border:1.5px solid rgba(201,168,76,.3);overflow:hidden;display:flex;align-items:center;justify-content:center;z-index:10">
+        <img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+        <div id="LCPP" style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center">Holder Photo</div>
+      </div>
+      <!-- Info fields -->
+      <div style="position:absolute;top:122px;left:158px;right:200px;z-index:10">
+        <div id="LNAME" style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:5px">-</div>
+        <div id="LSPEC" style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px">-</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">License No.</div><div id="LNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;color:#c9a84c">-</div></div>
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Date of Birth</div><div id="LDOB2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Issue Date</div><div id="LDATE" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Valid Until</div><div id="LEXP2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f59e0b">-</div></div>
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Nationality</div><div id="LNAT2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
+          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Status</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;color:#4ade80">ACTIVE</div></div>
+        </div>
+      </div>
+      <!-- Right panel -->
+      <div style="position:absolute;top:18px;right:20px;width:165px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="width:80px;height:95px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);overflow:hidden;display:flex;align-items:center;justify-content:center">
+          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:4px">Trainer Photo</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Issuing Trainer</div>
+        <div id="LTRNAME" style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:600;color:#f8f6f0;text-align:center;line-height:1.2">-</div>
+        <div id="LTRSTARS" style="font-size:.85rem;color:#c9a84c;letter-spacing:.12em;text-align:center"></div>
+        <div id="LTRNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;color:rgba(201,168,76,.4);letter-spacing:.05em;text-align:center">-</div>
+        <div style="width:100%;height:.5px;background:rgba(201,168,76,.2)"></div>
+        <div id="LQRCODE" style="width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px"></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
+      </div>
+      <!-- Signature -->
+      <div style="position:absolute;bottom:22px;left:24px;z-index:10">
+        <div style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#c9a84c;font-weight:600;border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:3px;margin-bottom:3px">Mohammad Almassri</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55)">President &#183; Water Sport Federation</div>
+      </div>
+      <div style="position:absolute;bottom:22px;right:210px;z-index:10;background:rgba(0,200,100,.1);border:1px solid rgba(0,200,100,.35);padding:4px 14px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#4ade80">Authorized to Teach</div>
+      </div>
+    </div>
+
+    <!-- BACK SIDE label -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:8px 0 6px">CARD BACK</div>
+
+    <!-- BACK SIDE -->
+    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
+      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
+      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
+      <!-- Large logo watermark -->
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;height:320px;opacity:.1;z-index:1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="320" height="320">
+          <circle cx="80" cy="80" r="72" fill="none" stroke="#c9a84c" stroke-width="2"/>
+          <circle cx="80" cy="80" r="63" fill="none" stroke="#c9a84c" stroke-width="1"/>
+          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#c9a84c" letter-spacing="3">WSF</text>
+          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
+          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
+          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
+          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
+        </svg>
+      </div>
+      <!-- Diagonal watermark text -->
+      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3.5">WATER SPORT FEDERATION &#183; CERTIFIED &#183; AUTHORIZED &#183; WATER SPORT FEDERATION &#183; CERTIFIED</div>
+      <!-- Center content -->
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10;width:600px">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#f0d980;letter-spacing:.05em;margin-bottom:10px">Water Sport Federation</div>
+        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 14px"></div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(201,168,76,.8);line-height:1.7;margin-bottom:14px">"Excellence in Every Stroke,<br>Safety in Every Wave"</div>
+        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 16px"></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:8px">Certified Disciplines</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.65);line-height:2">Swimming &#183; Infant Aquatics &#183; Water Polo<br>SUP &#183; Kayaking &#183; Lifeguarding</div>
+      </div>
+      <!-- Bottom -->
+      <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:10">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.15em;color:rgba(201,168,76,.4)">This card is property of Water Sport Federation &#183; watersportfederation.org</div>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

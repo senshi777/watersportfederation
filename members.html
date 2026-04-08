@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certified Members - Water Sport Federation</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--navy:#0a1628;--mid:#112240;--light:#1a3360;--gold:#c9a84c;--gold2:#e8c97a;--white:#f8f6f0;--muted:#8899aa}
+body{font-family:'Barlow',sans-serif;background:var(--navy);color:var(--white);min-height:100vh}
+
+nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);padding:1rem 3rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50}
+.nav-brand{display:flex;align-items:center;gap:1rem;text-decoration:none}
+.nav-logo{width:44px;height:44px;border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:.85rem;font-weight:700;color:var(--gold)}
+.nav-name{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--white);line-height:1.4}
+.nav-name span{display:block;color:var(--gold);font-size:.58rem;letter-spacing:.2em}
+.nav-back{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .3s}
+.nav-back:hover{color:var(--gold)}
+
+.hero-bar{background:var(--mid);border-bottom:1px solid rgba(201,168,76,.15);padding:3rem 3rem 2.5rem}
+.hero-bar .stag{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:.5rem}
+.hero-bar h1{font-family:'Cormorant Garamond',serif;font-size:2.8rem;font-weight:300;color:var(--white);margin-bottom:.4rem}
+.hero-bar h1 strong{font-weight:700;color:var(--gold)}
+.hero-bar p{color:var(--muted);font-size:.9rem;max-width:600px;line-height:1.7}
+
+.controls{padding:1.5rem 3rem;background:var(--navy);border-bottom:1px solid rgba(201,168,76,.1);display:flex;gap:1rem;flex-wrap:wrap;align-items:center}
+.search-box{flex:1;min-width:220px;position:relative}
+.search-box input{width:100%;background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.7rem 1rem .7rem 2.5rem;font-family:'Barlow',sans-serif;font-size:.88rem;outline:none;transition:border-color .3s}
+.search-box input:focus{border-color:var(--gold)}
+.search-box::before{content:"⌕";position:absolute;left:.8rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1.1rem;pointer-events:none}
+.filter-select{background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.7rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:.08em;outline:none;cursor:pointer;transition:border-color .3s}
+.filter-select:focus{border-color:var(--gold)}
+.filter-select option{background:var(--mid)}
+.count-badge{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.count-badge span{color:var(--gold)}
+
+.members-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.5rem;padding:2.5rem 3rem 5rem}
+
+.member-card{background:var(--mid);border:1px solid rgba(201,168,76,.15);transition:all .3s;position:relative;overflow:hidden}
+.member-card:hover{border-color:rgba(201,168,76,.4);transform:translateY(-3px)}
+.member-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,transparent,var(--gold),transparent);opacity:0;transition:opacity .3s}
+.member-card:hover::before{opacity:1}
+
+.card-header{padding:1.2rem 1.4rem .8rem;display:flex;justify-content:space-between;align-items:flex-start}
+.card-initials{width:48px;height:48px;border-radius:50%;background:rgba(201,168,76,.1);border:1.5px solid rgba(201,168,76,.35);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:var(--gold);flex-shrink:0}
+.card-type-badge{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 8px}
+.badge-cert{background:rgba(21,101,192,.2);color:#7eb8f5;border:1px solid rgba(21,101,192,.3)}
+.badge-lic{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
+
+.card-body{padding:0 1.4rem 1.2rem}
+.card-name{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:600;color:var(--white);margin-bottom:.2rem}
+.card-level{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.8rem}
+.card-meta{display:flex;flex-direction:column;gap:.35rem}
+.meta-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:.5px solid rgba(201,168,76,.08)}
+.meta-row:last-child{border-bottom:none}
+.meta-key{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.meta-val{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;color:var(--white);letter-spacing:.03em}
+.meta-val.gold{color:var(--gold)}
+.meta-val.green{color:#4ade80}
+.meta-val.amber{color:#f59e0b}
+
+.card-footer{padding:.8rem 1.4rem;border-top:1px solid rgba(201,168,76,.08);display:flex;justify-content:space-between;align-items:center}
+.verify-link{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .3s}
+.verify-link:hover{color:var(--gold)}
+.country-flag{font-size:.85rem}
+
+.empty-state{grid-column:1/-1;text-align:center;padding:5rem 2rem;color:var(--muted)}
+.empty-state h3{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;margin-bottom:.5rem;color:var(--white)}
+
+@media(max-width:768px){.members-grid{padding:1.5rem;grid-template-columns:1fr}.controls{padding:1rem 1.5rem}.hero-bar{padding:2rem 1.5rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">
+    <div class="nav-logo">WSF</div>
+    <div class="nav-name">Water Sport Federation<span>watersportfederation.org</span></div>
+  </a>
+  <a href="index.html" class="nav-back">← Back to Main Site</a>
+</nav>
+
+<div class="hero-bar">
+  <span class="stag">WSF Registry</span>
+  <h1>Certified <strong>Members</strong></h1>
+  <p>All individuals listed here hold a valid certification or teaching license issued by the Water Sport Federation. Scan any certificate QR code to instantly verify authenticity.</p>
+</div>
+
+<div class="controls">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search by name, cert ID, or level..." oninput="filterMembers()">
+  </div>
+  <select class="filter-select" id="typeFilter" onchange="filterMembers()">
+    <option value="">All Types</option>
+    <option value="cert">Certificates</option>
+    <option value="license">Licenses</option>
+  </select>
+  <select class="filter-select" id="levelFilter" onchange="filterMembers()">
+    <option value="">All Levels</option>
+    <option>Swimming - Beginner Level 1</option>
+    <option>Swimming - Intermediate Level 2</option>
+    <option>Swimming - Advanced Level 3</option>
+    <option>Aqua Baby - Infant Swimming Level 1</option>
+    <option>Aqua Toddler - Infant Swimming Level 2</option>
+    <option>Aqua Junior - Infant Swimming Level 3</option>
+    <option>Baby Swimming Instructor L1</option>
+    <option>Baby Swimming Instructor L2</option>
+    <option>Master Instructor Trainer</option>
+  </select>
+  <div class="count-badge">Showing <span id="countDisplay">0</span> members</div>
+</div>
+
+<div class="members-grid" id="membersGrid">
+  <div class="empty-state">
+    <h3>No members yet</h3>
+    <p>Members will appear here once certificates and licenses are issued through the Trainer Portal.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPABASE_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
+var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
+
+// Fallback data in case Supabase is unreachable
+var MEMBERS = [
+  {
+    type: "license",
+    name: "Bilal Jafar",
+    level: "Master Instructor Trainer",
+    certId: "WSF-MIT-2026-001",
+    issued: "01/01/2026",
+    expires: "31/12/2026",
+    country: "Jordan",
+    status: "active"
+  }
+];
+
+var filtered = [];
+
+async function loadFromSupabase() {
+  document.getElementById("membersGrid").innerHTML = '<div class="empty-state"><h3>Loading members...</h3><p>Fetching live data from WSF database.</p></div>';
+  try {
+    var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var result = await db.from('members').select('*').order('created_at', {ascending: false});
+    if (result.error) throw result.error;
+    if (result.data && result.data.length > 0) {
+      MEMBERS = result.data.map(function(r) {
+        return {
+          type: r.type,
+          name: r.name,
+          level: r.level || r.specialty || '-',
+          certId: r.cert_id,
+          issued: r.issued,
+          expires: r.expires,
+          country: r.country || '',
+          status: r.status || 'active'
+        };
+      });
+    }
+  } catch(e) {
+    console.warn('Supabase load failed, using fallback:', e.message);
+  }
+  filtered = MEMBERS.slice();
+  renderGrid();
+}
+
+function getInitials(name) {
+  return name.split(" ").map(function(n){return n[0];}).slice(0,2).join("").toUpperCase();
+}
+
+function isExpired(exp) {
+  if(!exp) return false;
+  var parts = exp.split("/");
+  if(parts.length !== 3) return false;
+  var d = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+  return d < new Date();
+}
+
+function statusLabel(m) {
+  if(isExpired(m.expires)) return '<span class="meta-val amber">Expired</span>';
+  return '<span class="meta-val green">Active</span>';
+}
+
+function renderCard(m) {
+  var badge = m.type === "license"
+    ? '<span class="card-type-badge badge-lic">License</span>'
+    : '<span class="card-type-badge badge-cert">Certificate</span>';
+  var levelLabel = m.level || "-";
+  var verifyUrl = "index.html?verify=" + encodeURIComponent(m.certId);
+  return '<div class="member-card" data-type="'+m.type+'" data-level="'+m.level+'" data-name="'+m.name.toLowerCase()+'" data-id="'+m.certId.toLowerCase()+'">' +
+    '<div class="card-header"><div class="card-initials">'+getInitials(m.name)+'</div>'+badge+'</div>' +
+    '<div class="card-body">' +
+      '<div class="card-name">'+m.name+'</div>' +
+      '<div class="card-level">'+levelLabel+'</div>' +
+      '<div class="card-meta">' +
+        '<div class="meta-row"><span class="meta-key">Cert / License No.</span><span class="meta-val gold">'+m.certId+'</span></div>' +
+        '<div class="meta-row"><span class="meta-key">Issue Date</span><span class="meta-val">'+m.issued+'</span></div>' +
+        '<div class="meta-row"><span class="meta-key">Valid Until</span><span class="meta-val">'+m.expires+'</span></div>' +
+        '<div class="meta-row"><span class="meta-key">Country</span><span class="meta-val">'+(m.country||"-")+'</span></div>' +
+        '<div class="meta-row"><span class="meta-key">Status</span>'+statusLabel(m)+'</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card-footer"><a href="'+verifyUrl+'" class="verify-link">Verify Certificate →</a></div>' +
+    '</div>';
+}
+
+function renderGrid() {
+  var grid = document.getElementById("membersGrid");
+  document.getElementById("countDisplay").textContent = filtered.length;
+  if(!filtered.length) {
+    grid.innerHTML = '<div class="empty-state"><h3>No results found</h3><p>Try a different search or filter.</p></div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(renderCard).join("");
+}
+
+function filterMembers() {
+  var q = document.getElementById("searchInput").value.toLowerCase();
+  var type = document.getElementById("typeFilter").value;
+  var level = document.getElementById("levelFilter").value;
+  filtered = MEMBERS.filter(function(m) {
+    var matchQ = !q || m.name.toLowerCase().includes(q) || m.certId.toLowerCase().includes(q) || (m.level||"").toLowerCase().includes(q);
+    var matchType = !type || m.type === type;
+    var matchLevel = !level || m.level === level;
+    return matchQ && matchType && matchLevel;
+  });
+  renderGrid();
+}
+
+loadFromSupabase();
+</script>
+</body>
+</html>
