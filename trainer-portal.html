@@ -299,39 +299,43 @@ function closeCertModal() {
 }
 
 async function downloadPDF() {
-  var el = document.getElementById("certView").style.display!=="none" ? document.getElementById("certView") : document.getElementById("licView");
-  var docEl = el.querySelector(".cert, .license-doc");
-  if(!docEl) return;
+  var isCert = document.getElementById("certView").style.display !== "none";
+  var docEl = isCert ? document.querySelector(".cert") : document.getElementById("licFront");
+  if (!docEl) {
+    alert("Please generate a document first, then click Download PDF.");
+    return;
+  }
   var btn = document.getElementById("DLBTN");
   btn.textContent = "Generating...";
   btn.disabled = true;
   try {
-    var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+    var bgColor = isCert ? "#0a1628" : "#0a1628";
+    var pdf = new jspdf.jsPDF({orientation: isCert ? "portrait" : "landscape", unit:"mm", format:"a4"});
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
-
-    // Render front
-    var canvas1 = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+    var canvas1 = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:bgColor, logging:false});
     var img1 = canvas1.toDataURL("image/jpeg", 0.95);
-    var r1 = Math.min(pdfW/canvas1.width, pdfH/canvas1.height) * 96;
-    var w1 = canvas1.width*r1/96, h1 = canvas1.height*r1/96;
-    pdf.addImage(img1, "JPEG", (pdfW-w1)/2, (pdfH-h1)/2, w1, h1);
-
-    // If license, add back side on page 2
+    var ratio1 = Math.min(pdfW / (canvas1.width / 3.7795), pdfH / (canvas1.height / 3.7795));
+    var w1 = (canvas1.width / 3.7795) * ratio1;
+    var h1 = (canvas1.height / 3.7795) * ratio1;
+    pdf.addImage(img1, "JPEG", (pdfW - w1) / 2, (pdfH - h1) / 2, w1, h1);
     var backEl = document.getElementById("licBack");
-    if(!isCert && backEl) {
+    if (!isCert && backEl) {
       pdf.addPage();
       var canvas2 = await html2canvas(backEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
       var img2 = canvas2.toDataURL("image/jpeg", 0.95);
-      var r2 = Math.min(pdfW/canvas2.width, pdfH/canvas2.height) * 96;
-      var w2 = canvas2.width*r2/96, h2 = canvas2.height*r2/96;
-      pdf.addImage(img2, "JPEG", (pdfW-w2)/2, (pdfH-h2)/2, w2, h2);
+      var ratio2 = Math.min(pdfW / (canvas2.width / 3.7795), pdfH / (canvas2.height / 3.7795));
+      var w2 = (canvas2.width / 3.7795) * ratio2;
+      var h2 = (canvas2.height / 3.7795) * ratio2;
+      pdf.addImage(img2, "JPEG", (pdfW - w2) / 2, (pdfH - h2) / 2, w2, h2);
     }
-
     var nameEl = document.getElementById(isCert ? "CNME" : "LNAME");
-    var name = nameEl ? nameEl.textContent : "WSF-Doc";
-    pdf.save("WSF-" + name.replace(/\s+/g,"-") + ".pdf");
-  } catch(e) { alert("PDF generation failed. Try Print instead."); }
+    var docName = nameEl ? nameEl.textContent.trim() : "WSF-Document";
+    pdf.save("WSF-" + docName.replace(/\s+/g, "-") + ".pdf");
+  } catch(e) {
+    console.error("PDF error:", e);
+    alert("PDF generation failed: " + e.message + ". Try the Print button instead.");
+  }
   btn.textContent = "Download PDF";
   btn.disabled = false;
 }
