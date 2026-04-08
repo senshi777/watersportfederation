@@ -306,20 +306,30 @@ async function downloadPDF() {
   btn.textContent = "Generating...";
   btn.disabled = true;
   try {
-    var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#ffffff", logging:false});
-    var imgData = canvas.toDataURL("image/jpeg", 0.95);
-    var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+    var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
-    var imgW = canvas.width;
-    var imgH = canvas.height;
-    var ratio = Math.min(pdfW/imgW, pdfH/imgH) * 96;
-    var finalW = imgW * ratio / 96;
-    var finalH = imgH * ratio / 96;
-    var x = (pdfW - finalW) / 2;
-    var y = (pdfH - finalH) / 2;
-    pdf.addImage(imgData, "JPEG", x, y, finalW, finalH);
-    var name = docEl.querySelector ? (docEl.querySelector("#CNME,#LNAME")||{textContent:"WSF-Doc"}).textContent : "WSF-Doc";
+
+    // Render front
+    var canvas1 = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+    var img1 = canvas1.toDataURL("image/jpeg", 0.95);
+    var r1 = Math.min(pdfW/canvas1.width, pdfH/canvas1.height) * 96;
+    var w1 = canvas1.width*r1/96, h1 = canvas1.height*r1/96;
+    pdf.addImage(img1, "JPEG", (pdfW-w1)/2, (pdfH-h1)/2, w1, h1);
+
+    // If license, add back side on page 2
+    var backEl = document.getElementById("licBack");
+    if(!isCert && backEl) {
+      pdf.addPage();
+      var canvas2 = await html2canvas(backEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+      var img2 = canvas2.toDataURL("image/jpeg", 0.95);
+      var r2 = Math.min(pdfW/canvas2.width, pdfH/canvas2.height) * 96;
+      var w2 = canvas2.width*r2/96, h2 = canvas2.height*r2/96;
+      pdf.addImage(img2, "JPEG", (pdfW-w2)/2, (pdfH-h2)/2, w2, h2);
+    }
+
+    var nameEl = document.getElementById(isCert ? "CNME" : "LNAME");
+    var name = nameEl ? nameEl.textContent : "WSF-Doc";
     pdf.save("WSF-" + name.replace(/\s+/g,"-") + ".pdf");
   } catch(e) { alert("PDF generation failed. Try Print instead."); }
   btn.textContent = "Download PDF";
