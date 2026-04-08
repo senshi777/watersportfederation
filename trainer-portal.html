@@ -301,40 +301,45 @@ function closeCertModal() {
 async function downloadPDF() {
   var isCert = document.getElementById("certView").style.display !== "none";
   var docEl = isCert ? document.querySelector(".cert") : document.getElementById("licFront");
-  if (!docEl) {
-    alert("Please generate a document first, then click Download PDF.");
-    return;
-  }
+  if (!docEl) { alert("Please generate a document first."); return; }
   var btn = document.getElementById("DLBTN");
   btn.textContent = "Generating...";
   btn.disabled = true;
   try {
-    var bgColor = isCert ? "#0a1628" : "#0a1628";
-    var pdf = new jspdf.jsPDF({orientation: isCert ? "portrait" : "landscape", unit:"mm", format:"a4"});
-    var pdfW = pdf.internal.pageSize.getWidth();
-    var pdfH = pdf.internal.pageSize.getHeight();
-    var canvas1 = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:bgColor, logging:false});
-    var img1 = canvas1.toDataURL("image/jpeg", 0.95);
-    var ratio1 = Math.min(pdfW / (canvas1.width / 3.7795), pdfH / (canvas1.height / 3.7795));
-    var w1 = (canvas1.width / 3.7795) * ratio1;
-    var h1 = (canvas1.height / 3.7795) * ratio1;
-    pdf.addImage(img1, "JPEG", (pdfW - w1) / 2, (pdfH - h1) / 2, w1, h1);
-    var backEl = document.getElementById("licBack");
-    if (!isCert && backEl) {
-      pdf.addPage();
-      var canvas2 = await html2canvas(backEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-      var img2 = canvas2.toDataURL("image/jpeg", 0.95);
-      var ratio2 = Math.min(pdfW / (canvas2.width / 3.7795), pdfH / (canvas2.height / 3.7795));
-      var w2 = (canvas2.width / 3.7795) * ratio2;
-      var h2 = (canvas2.height / 3.7795) * ratio2;
-      pdf.addImage(img2, "JPEG", (pdfW - w2) / 2, (pdfH - h2) / 2, w2, h2);
+    if (isCert) {
+      // Certificate: A4 portrait
+      var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+      var pdfW = pdf.internal.pageSize.getWidth();
+      var pdfH = pdf.internal.pageSize.getHeight();
+      var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+      var img = canvas.toDataURL("image/jpeg", 0.95);
+      var ratio = Math.min(pdfW / (canvas.width/3.7795), pdfH / (canvas.height/3.7795));
+      var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
+      pdf.addImage(img, "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
+    } else {
+      // License card: credit card size 85.6 x 54mm, landscape, 2 pages
+      var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6, 54]});
+      var pdfW = 85.6, pdfH = 54;
+      var front = document.getElementById("licFront");
+      var back = document.getElementById("licBack");
+      // Front
+      var c1 = await html2canvas(front, {scale:3, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540});
+      var i1 = c1.toDataURL("image/jpeg", 0.97);
+      pdf.addImage(i1, "JPEG", 0, 0, pdfW, pdfH);
+      // Back
+      if (back) {
+        pdf.addPage([85.6, 54], "landscape");
+        var c2 = await html2canvas(back, {scale:3, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540});
+        var i2 = c2.toDataURL("image/jpeg", 0.97);
+        pdf.addImage(i2, "JPEG", 0, 0, pdfW, pdfH);
+      }
     }
     var nameEl = document.getElementById(isCert ? "CNME" : "LNAME");
-    var docName = nameEl ? nameEl.textContent.trim() : "WSF-Document";
-    pdf.save("WSF-" + docName.replace(/\s+/g, "-") + ".pdf");
+    var docName = nameEl ? nameEl.textContent.trim() : "WSF";
+    pdf.save("WSF-" + docName.replace(/\s+/g,"-") + ".pdf");
   } catch(e) {
     console.error("PDF error:", e);
-    alert("PDF generation failed: " + e.message + ". Try the Print button instead.");
+    alert("PDF failed: " + e.message);
   }
   btn.textContent = "Download PDF";
   btn.disabled = false;
