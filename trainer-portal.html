@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trainer Portal - Water Sport Federation</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-/* ALL LOGIC HERE IN HEAD - runs before body renders */
 var TRAINERS = {
   "bilal.jafar": { password: "WSF2026", name: "Bilal Jafar", no: "WSF-MIT-2026-001", stars: 5 }
 };
@@ -15,6 +17,14 @@ var currentTrainer = null;
 var certs = [];
 var currentPhoto = null;
 var trainerPhoto = null;
+
+function genID() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var base = Math.floor(Math.random() * 400) + 523;
+  var suffix = '';
+  for(var i=0;i<4;i++) suffix += chars[Math.floor(Math.random()*chars.length)];
+  return 'WSF-2026-' + base + suffix;
+}
 
 function doLogin() {
   var u = document.getElementById("LU").value.trim().toLowerCase();
@@ -26,12 +36,16 @@ function doLogin() {
     document.getElementById("LS").style.display = "none";
     document.getElementById("PS").style.display = "block";
     document.getElementById("WN").textContent = t.name;
-    var ps = ""; for(var i=0;i<(t.stars||0);i++) ps+="&#9733;";
+    var ps = ""; for(var i=0;i<(t.stars||0);i++) ps += "\u2605";
     document.getElementById("PORTALSTARS").innerHTML = ps;
     var now = new Date();
     var dd = String(now.getDate()).padStart(2,"0");
     var mm = String(now.getMonth()+1).padStart(2,"0");
-    document.getElementById("FD").value = dd+"/"+mm+"/"+now.getFullYear();
+    var dateStr = dd+"/"+mm+"/"+now.getFullYear();
+    document.getElementById("FD").value = dateStr;
+    document.getElementById("LD").value = dateStr;
+    document.getElementById("FC").value = genID();
+    document.getElementById("LC").value = genID();
     loadTrainerPhoto();
   } else {
     document.getElementById("LE").style.display = "block";
@@ -40,25 +54,21 @@ function doLogin() {
 }
 
 function doLogout() {
-  currentTrainer = null; certs = []; currentPhoto = null;
+  currentTrainer = null; certs = []; currentPhoto = null; trainerPhoto = null;
   document.getElementById("PS").style.display = "none";
   document.getElementById("LS").style.display = "flex";
   document.getElementById("LU").value = "";
   document.getElementById("LP").value = "";
-  document.getElementById("IL").innerHTML = "<div class='empty'>No certificates issued yet this session</div>";
+  document.getElementById("IL").innerHTML = "<div class='empty'>No documents issued yet this session</div>";
 }
 
 function handleTrainerPhoto(inp) {
-  var f = inp.files[0];
-  if (!f) return;
+  var f = inp.files[0]; if(!f) return;
   var r = new FileReader();
   r.onload = function(e) {
     trainerPhoto = e.target.result;
-    if (currentTrainer) {
-      currentTrainer.photo = e.target.result;
-      // Save permanently to localStorage
-      try { localStorage.setItem("wsf_photo_" + currentTrainer.no, e.target.result); } catch(ex) {}
-    }
+    if(currentTrainer) currentTrainer.photo = e.target.result;
+    try { localStorage.setItem("wsf_photo_"+currentTrainer.no, e.target.result); } catch(ex){}
     applyTrainerPhoto(e.target.result);
   };
   r.readAsDataURL(f);
@@ -67,154 +77,212 @@ function handleTrainerPhoto(inp) {
 function applyTrainerPhoto(src) {
   trainerPhoto = src;
   var img = document.getElementById("TPTHUMBIMG");
-  if (img) {
-    img.src = src;
-    img.style.display = "block";
-  }
-  document.getElementById("TPIC").style.display = "none";
-  var fn = document.getElementById("TPFN");
-  if (fn) { fn.textContent = "Photo saved to your profile"; fn.style.display = "block"; }
+  if(img){ img.src=src; img.style.display="block"; }
+  document.getElementById("TPIC").style.display="none";
+  var fn=document.getElementById("TPFN");
+  if(fn){ fn.textContent="Photo saved"; fn.style.display="block"; }
 }
 
 function loadTrainerPhoto() {
-  if (!currentTrainer) return;
+  if(!currentTrainer) return;
   try {
-    var saved = localStorage.getItem("wsf_photo_" + currentTrainer.no);
-    if (saved) {
-      applyTrainerPhoto(saved);
-      currentTrainer.photo = saved;
-    }
-  } catch(ex) {}
+    var saved = localStorage.getItem("wsf_photo_"+currentTrainer.no);
+    if(saved){ applyTrainerPhoto(saved); currentTrainer.photo=saved; }
+  } catch(ex){}
 }
 
-function pickPhoto() {
-  document.getElementById("PFI").click();
-}
+function pickPhoto() { document.getElementById("PFI").click(); }
+function pickLicensePhoto() { document.getElementById("LPFI").click(); }
 
 function handlePhoto(inp) {
-  var f = inp.files[0];
-  if (!f) return;
-  var r = new FileReader();
-  r.onload = function(e) {
-    currentPhoto = e.target.result;
-    var img = document.getElementById("PTI");
-    img.src = currentPhoto;
-    img.style.display = "block";
-    document.getElementById("PIC").style.display = "none";
-    var fn = document.getElementById("PFN");
-    fn.textContent = "Uploaded: " + f.name;
-    fn.style.display = "block";
+  var f=inp.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(e){
+    currentPhoto=e.target.result;
+    var img=document.getElementById("PTI"); img.src=currentPhoto; img.style.display="block";
+    document.getElementById("PIC").style.display="none";
+    var fn=document.getElementById("PFN"); fn.textContent="Uploaded: "+f.name; fn.style.display="block";
   };
   r.readAsDataURL(f);
 }
 
+var currentLicensePhoto = null;
+function handleLicensePhoto(inp) {
+  var f=inp.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(e){
+    currentLicensePhoto=e.target.result;
+    var img=document.getElementById("LPTI"); img.src=currentLicensePhoto; img.style.display="block";
+    document.getElementById("LPIC").style.display="none";
+    var fn=document.getElementById("LPFN"); fn.textContent="Uploaded: "+f.name; fn.style.display="block";
+  };
+  r.readAsDataURL(f);
+}
+
+function switchTab(tab) {
+  document.getElementById("tabCert").classList.toggle("tab-active", tab==="cert");
+  document.getElementById("tabLic").classList.toggle("tab-active", tab==="lic");
+  document.getElementById("certForm").style.display = tab==="cert"?"block":"none";
+  document.getElementById("licForm").style.display = tab==="lic"?"block":"none";
+}
+
 function generateCert() {
-  var fn = document.getElementById("FF").value.trim();
-  var ln = document.getElementById("FL").value.trim();
-  var lv = document.getElementById("FV").value;
-  var dt = document.getElementById("FD").value.trim();
-  var cn = document.getElementById("FC").value.trim();
-  if (!fn || !ln || !lv || !dt || !cn) {
-    alert("Please fill all required fields marked with *");
-    return;
-  }
-  var name = fn + " " + ln;
-  var parts = dt.split("/");
-  var exp = parts.length === 3 ? parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1) : "";
-  certs.unshift({ name:name, level:lv, no:cn, date:dt, exp:exp, photo:currentPhoto, trainerName: currentTrainer ? currentTrainer.name : "-", trainerStars: currentTrainer ? currentTrainer.stars : 0 });
+  var fn=document.getElementById("FF").value.trim();
+  var ln=document.getElementById("FL").value.trim();
+  var lv=document.getElementById("FV").value;
+  var dt=document.getElementById("FD").value.trim();
+  var cn=document.getElementById("FC").value.trim();
+  if(!fn||!ln||!lv||!dt||!cn){alert("Please fill all required fields (*)");return;}
+  var name=fn+" "+ln;
+  var parts=dt.split("/");
+  var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
+  certs.unshift({type:"cert",name:name,level:lv,no:cn,date:dt,exp:exp,photo:currentPhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0});
   refreshList();
-  showCert(0);
-  document.getElementById("FF").value = "";
-  document.getElementById("FL").value = "";
-  document.getElementById("FB").value = "";
-  document.getElementById("FN").value = "";
-  document.getElementById("FC").value = "";
-  currentPhoto = null;
-  document.getElementById("PTI").style.display = "none";
-  document.getElementById("PIC").style.display = "block";
-  document.getElementById("PFN").style.display = "none";
-  document.getElementById("PFI").value = "";
+  showDoc(0);
+  clearCertForm();
+}
+
+function generateLicense() {
+  var fn=document.getElementById("LFN").value.trim();
+  var ln=document.getElementById("LLN").value.trim();
+  var sp=document.getElementById("LSP").value;
+  var dt=document.getElementById("LD").value.trim();
+  var cn=document.getElementById("LC").value.trim();
+  var dob=document.getElementById("LDOB").value.trim();
+  var nat=document.getElementById("LNAT").value.trim();
+  if(!fn||!ln||!sp||!dt||!cn){alert("Please fill all required fields (*)");return;}
+  var name=fn+" "+ln;
+  var parts=dt.split("/");
+  var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
+  certs.unshift({type:"license",name:name,specialty:sp,no:cn,date:dt,exp:exp,dob:dob,nationality:nat,photo:currentLicensePhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0});
+  refreshList();
+  showDoc(0);
+  clearLicenseForm();
+}
+
+function clearCertForm() {
+  ["FF","FL","FC"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("FC").value=genID();
+  currentPhoto=null;
+  document.getElementById("PTI").style.display="none";
+  document.getElementById("PIC").style.display="block";
+  document.getElementById("PFN").style.display="none";
+  document.getElementById("PFI").value="";
+}
+
+function clearLicenseForm() {
+  ["LFN","LLN","LDOB","LNAT","LC"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("LC").value=genID();
+  currentLicensePhoto=null;
+  document.getElementById("LPTI").style.display="none";
+  document.getElementById("LPIC").style.display="block";
+  document.getElementById("LPFN").style.display="none";
+  document.getElementById("LPFI").value="";
 }
 
 function refreshList() {
-  if (!certs.length) {
-    document.getElementById("IL").innerHTML = "<div class='empty'>No certificates issued yet this session</div>";
-    return;
-  }
-  var html = "";
-  for (var i = 0; i < certs.length; i++) {
-    var c = certs[i];
-    html += "<div class='irow'>";
-    html += "<div><div class='iname'>" + c.name + "</div>";
-    html += "<div class='imeta'><span>" + c.level + "</span> " + c.no + " &middot; " + c.date + "</div></div>";
-    html += "<button class='vcbtn' onclick='showCert(" + i + ")'>View Certificate</button>";
-    html += "</div>";
-  }
-  document.getElementById("IL").innerHTML = html;
-}
-
-function generateQR(certNo) {
-  var container = document.getElementById("QRCODE");
-  container.innerHTML = "";
-  var url = "https://watersportfederation.org/index.html?verify=" + encodeURIComponent(certNo);
-  new QRCode(container, {
-    text: url,
-    width: 80,
-    height: 80,
-    colorDark: "#0d4a8a",
-    colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.M
+  if(!certs.length){document.getElementById("IL").innerHTML="<div class='empty'>No documents issued yet this session</div>";return;}
+  var html="";
+  certs.forEach(function(c,i){
+    var badge=c.type==="license"?"LICENSE":"CERT";
+    var badgeColor=c.type==="license"?"#c9a84c":"#1565c0";
+    html+="<div class='irow'><div><div class='iname'>"+c.name+"<span style='margin-left:8px;font-size:.6rem;background:"+badgeColor+";color:white;padding:2px 6px;border-radius:2px;vertical-align:middle;'>"+badge+"</span></div><div class='imeta'><span>"+(c.level||c.specialty)+"</span>"+c.no+" &middot; "+c.date+"</div></div><button class='vcbtn' onclick='showDoc("+i+")'>View</button></div>";
   });
+  document.getElementById("IL").innerHTML=html;
 }
 
-function showCert(i) {
-  var c = certs[i];
-  if (!c) return;
-  document.getElementById("CNME").textContent = c.name;
-  document.getElementById("CLVL").textContent = c.level;
-  document.getElementById("CNO").textContent = c.no;
-  document.getElementById("CDT").textContent = c.date;
-  document.getElementById("CTN").textContent = currentTrainer ? currentTrainer.no : "-";
-  generateQR(c.no);
-  document.getElementById("CTRNAME").textContent = c.trainerName || "-";
-  var starsHtml = "";
-  var sc = c.trainerStars || 0;
-  for (var s = 0; s < 5; s++) { starsHtml += s < sc ? "&#9733;" : "&#9734;"; }
-  document.getElementById("CTRSTARS").innerHTML = starsHtml;
-  var img = document.getElementById("CPI");
-  var ph = document.getElementById("CPP");
-  if (c.photo) {
-    img.src = c.photo;
-    img.style.display = "block";
-    ph.style.display = "none";
-  } else {
-    img.style.display = "none";
-    ph.style.display = "flex";
-  }
-  // Trainer photo above QR
-  var trPhotoEl = document.getElementById("TRPHOTOIMG");
-  var trPhotoPh = document.getElementById("TRPHOTOPH");
-  if (trPhotoEl) {
-    if (trainerPhoto) {
-      trPhotoEl.src = trainerPhoto;
-      trPhotoEl.style.display = "block";
-      if (trPhotoPh) trPhotoPh.style.display = "none";
-    } else {
-      trPhotoEl.style.display = "none";
-      if (trPhotoPh) trPhotoPh.style.display = "block";
-    }
-  }
-  document.getElementById("CM").style.display = "flex";
-  document.body.style.overflow = "hidden";
+function showDoc(i) {
+  var c=certs[i]; if(!c) return;
+  if(c.type==="license") showLicense(c);
+  else showCert(c);
+}
+
+function generateQR(certNo, containerId) {
+  var container=document.getElementById(containerId);
+  container.innerHTML="";
+  var url="https://watersportfederation.org/index.html?verify="+encodeURIComponent(certNo);
+  new QRCode(container,{text:url,width:80,height:80,colorDark:"#0d4a8a",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+}
+
+function showCert(c) {
+  document.getElementById("CNME").textContent=c.name;
+  document.getElementById("CLVL").textContent=c.level;
+  document.getElementById("CNO").textContent=c.no;
+  document.getElementById("CDT").textContent=c.date;
+  document.getElementById("CEXP").textContent=c.exp||"";
+  document.getElementById("CTN").textContent=currentTrainer?currentTrainer.no:"-";
+  document.getElementById("CTRNAME").textContent=c.trainerName||"-";
+  var sh=""; for(var s=0;s<5;s++) sh+=s<(c.trainerStars||0)?"\u2605":"\u2606";
+  document.getElementById("CTRSTARS").innerHTML=sh;
+  var img=document.getElementById("CPI"),ph=document.getElementById("CPP");
+  if(c.photo){img.src=c.photo;img.style.display="block";ph.style.display="none";}
+  else{img.style.display="none";ph.style.display="flex";}
+  var trImg=document.getElementById("TRPHOTOIMG"),trPh=document.getElementById("TRPHOTOPH");
+  if(trainerPhoto){trImg.src=trainerPhoto;trImg.style.display="block";if(trPh)trPh.style.display="none";}
+  else{trImg.style.display="none";if(trPh)trPh.style.display="block";}
+  generateQR(c.no,"QRCODE");
+  document.getElementById("certView").style.display="block";
+  document.getElementById("licView").style.display="none";
+  document.getElementById("CM").style.display="flex";
+  document.body.style.overflow="hidden";
+}
+
+function showLicense(c) {
+  document.getElementById("LNAME").textContent=c.name;
+  document.getElementById("LSPEC").textContent=c.specialty;
+  document.getElementById("LNO").textContent=c.no;
+  document.getElementById("LDATE").textContent=c.date;
+  document.getElementById("LEXP2").textContent=c.exp||"";
+  document.getElementById("LDOB2").textContent=c.dob||"";
+  document.getElementById("LNAT2").textContent=c.nationality||"";
+  document.getElementById("LTRNAME").textContent=c.trainerName||"-";
+  var sh=""; for(var s=0;s<5;s++) sh+=s<(c.trainerStars||0)?"\u2605":"\u2606";
+  document.getElementById("LTRSTARS").innerHTML=sh;
+  document.getElementById("LTRNO").textContent=currentTrainer?currentTrainer.no:"-";
+  var img=document.getElementById("LCPI"),ph=document.getElementById("LCPP");
+  if(c.photo){img.src=c.photo;img.style.display="block";ph.style.display="none";}
+  else{img.style.display="none";ph.style.display="flex";}
+  var trImg=document.getElementById("LTRPHOTO"),trPh=document.getElementById("LTRPHOTOPH");
+  if(trainerPhoto){trImg.src=trainerPhoto;trImg.style.display="block";if(trPh)trPh.style.display="none";}
+  else{trImg.style.display="none";if(trPh)trPh.style.display="block";}
+  generateQR(c.no,"LQRCODE");
+  document.getElementById("licView").style.display="block";
+  document.getElementById("certView").style.display="none";
+  document.getElementById("CM").style.display="flex";
+  document.body.style.overflow="hidden";
 }
 
 function closeCertModal() {
-  document.getElementById("CM").style.display = "none";
-  document.body.style.overflow = "";
+  document.getElementById("CM").style.display="none";
+  document.body.style.overflow="";
 }
 
-function printCert() {
-  window.print();
+async function downloadPDF() {
+  var el = document.getElementById("certView").style.display!=="none" ? document.getElementById("certView") : document.getElementById("licView");
+  var docEl = el.querySelector(".cert, .license-doc");
+  if(!docEl) return;
+  var btn = document.getElementById("DLBTN");
+  btn.textContent = "Generating...";
+  btn.disabled = true;
+  try {
+    var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#ffffff", logging:false});
+    var imgData = canvas.toDataURL("image/jpeg", 0.95);
+    var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+    var pdfW = pdf.internal.pageSize.getWidth();
+    var pdfH = pdf.internal.pageSize.getHeight();
+    var imgW = canvas.width;
+    var imgH = canvas.height;
+    var ratio = Math.min(pdfW/imgW, pdfH/imgH) * 96;
+    var finalW = imgW * ratio / 96;
+    var finalH = imgH * ratio / 96;
+    var x = (pdfW - finalW) / 2;
+    var y = (pdfH - finalH) / 2;
+    pdf.addImage(imgData, "JPEG", x, y, finalW, finalH);
+    var name = docEl.querySelector ? (docEl.querySelector("#CNME,#LNAME")||{textContent:"WSF-Doc"}).textContent : "WSF-Doc";
+    pdf.save("WSF-" + name.replace(/\s+/g,"-") + ".pdf");
+  } catch(e) { alert("PDF generation failed. Try Print instead."); }
+  btn.textContent = "Download PDF";
+  btn.disabled = false;
 }
 </script>
 
@@ -240,18 +308,22 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .lbtn:hover{background:var(--gold2)}
 .lerr{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:.8rem;padding:.7rem 1rem;margin-top:.8rem;display:none;font-family:'Barlow Condensed',sans-serif}
 .lnote{font-size:.73rem;color:var(--muted);text-align:center;margin-top:1.2rem;line-height:1.5}
-.lnote a{color:var(--gold)}
 #PS{display:none}
 .ph{background:var(--mid);border-bottom:1px solid rgba(201,168,76,.2);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
 .pw{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .pw span{color:var(--gold)}
+#PORTALSTARS{color:var(--gold);font-size:.9rem;letter-spacing:.1em}
 .logoutbtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;background:none;border:1px solid rgba(201,168,76,.25);color:var(--muted);padding:.4rem 1rem;cursor:pointer;transition:all .3s}
 .logoutbtn:hover{border-color:var(--gold);color:var(--gold)}
-.pbody{max-width:860px;margin:0 auto;padding:2.5rem 2rem}
+.pbody{max-width:900px;margin:0 auto;padding:2.5rem 2rem}
 .stag{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem;display:block}
 .stitle{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--white);margin-bottom:.4rem}
 .stitle strong{font-weight:700;color:var(--gold)}
 .divl{width:48px;height:2px;background:var(--gold);margin-bottom:2rem}
+.tabs{display:flex;border-bottom:2px solid rgba(201,168,76,.2);margin-bottom:2rem}
+.tab-btn{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;background:none;border:none;color:var(--muted);padding:.8rem 2rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .3s}
+.tab-btn:hover{color:var(--white)}
+.tab-active{color:var(--gold)!important;border-bottom-color:var(--gold)!important}
 .ibox{background:var(--mid);border:1px solid rgba(201,168,76,.2);padding:2rem;margin-bottom:2.5rem}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 .full{grid-column:1/-1}
@@ -273,55 +345,126 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .vcbtn{font-family:'Barlow Condensed',sans-serif;font-size:.67rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:var(--gold);color:var(--navy);border:none;padding:.4rem .9rem;cursor:pointer;flex-shrink:0}
 .vcbtn:hover{background:var(--gold2)}
 .empty{text-align:center;padding:2.5rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;border:1px dashed rgba(201,168,76,.12)}
-.cmo{position:fixed;inset:0;z-index:200;background:rgba(5,13,26,.95);display:none;align-items:flex-start;justify-content:center;padding:2rem 1rem 6rem;overflow-y:auto}
-.cmc{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:300;display:flex;gap:.8rem;background:rgba(10,22,40,.93);padding:.7rem 1.2rem;border:1px solid rgba(201,168,76,.3);border-radius:3px}
+/* MODAL */
+.cmo{position:fixed;inset:0;z-index:200;background:rgba(5,13,26,.96);display:none;align-items:flex-start;justify-content:center;padding:2rem 1rem 5rem;overflow-y:auto}
+.cmo.open{display:flex}
+.cmc{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:300;display:flex;gap:.8rem;background:rgba(10,22,40,.95);padding:.7rem 1.2rem;border:1px solid rgba(201,168,76,.3);border-radius:3px}
 .cbtn{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:.55rem 1.3rem;cursor:pointer;border:none;transition:all .3s}
 .cbtn.pr{background:var(--gold);color:var(--navy)}
 .cbtn.pr:hover{background:var(--gold2)}
 .cbtn.cl{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
-.cert{width:794px;min-height:980px;background:#fff;position:relative;overflow:hidden;margin:0 auto}
-.cwt{position:absolute;top:0;left:0;right:0;height:140px;background:linear-gradient(135deg,#0d4a8a,#1565c0 40%,#0d8cca 70%,#4fc3f7);clip-path:ellipse(110% 100% at 50% 0);z-index:1}
-.cwb{position:absolute;bottom:0;left:0;right:0;height:88px;background:linear-gradient(135deg,#0d4a8a,#1565c0 50%,#4fc3f7);clip-path:ellipse(110% 100% at 50% 100%);z-index:1}
-.cwt2{position:absolute;top:58px;left:-50px;right:-50px;height:110px;border-bottom:3px solid rgba(255,255,255,.25);border-radius:0 0 50% 50%;z-index:2;pointer-events:none}
-.cwb2{position:absolute;bottom:18px;left:-50px;right:-50px;height:80px;border-top:3px solid rgba(255,255,255,.25);border-radius:50% 50% 0 0;z-index:2;pointer-events:none}
-.cwm{position:absolute;top:50%;left:-20%;width:140%;transform:translateY(-50%) rotate(-35deg);font-family:'Barlow Condensed',sans-serif;font-size:3.2rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(13,74,138,.06);white-space:nowrap;pointer-events:none;z-index:1;line-height:2.2}
-.ch{position:relative;z-index:10;padding:16px 38px 8px;display:flex;justify-content:space-between;align-items:flex-start}
-.cla{display:flex;align-items:center;gap:10px}
-.clc{width:66px;height:66px;border-radius:50%;background:#fff;border:3px solid rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:700;color:#0d4a8a;box-shadow:0 4px 14px rgba(0,0,0,.2);flex-shrink:0;line-height:1;text-align:center}
-.clt{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#fff;font-size:.72rem;line-height:1.4;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.cbtn.cl:hover{background:rgba(255,255,255,.2)}
+.cbtn:disabled{opacity:.5;cursor:not-allowed}
 
-
-
-
-.cta2{position:relative;z-index:10;text-align:center;padding:18px 38px 5px}
-.ctb{font-family:'Cormorant Garamond',serif;font-size:2.3rem;font-weight:700;color:#0d4a8a;line-height:1;margin-bottom:3px}
-.cts{font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:#1565c0}
-.cemba{display:flex;justify-content:center;position:relative;z-index:10;padding:7px 0}
-.cemb{width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,#1565c0,#0d4a8a);border:4px solid #c9a84c;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:.88rem;font-weight:700;color:#fff;text-align:center;line-height:1.2;position:relative}
-.cemb::before{content:'\2605 \2605 \2605';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:.52rem;color:#c9a84c;letter-spacing:.3em;white-space:nowrap}
-.cra{position:relative;z-index:10;text-align:center;padding:11px 55px}
-.crh{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:#1565c0;margin-bottom:5px}
-.crn{font-family:'Cormorant Garamond',serif;font-size:2.7rem;font-weight:700;color:#0d4a8a;line-height:1;margin-bottom:9px;border-bottom:2px solid rgba(13,74,138,.14);padding-bottom:8px}
-.crq{font-family:'Cormorant Garamond',serif;font-size:.92rem;font-style:italic;color:#1565c0;margin-bottom:4px}
-.crl{font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:700;color:#0d4a8a}
-.cbot{position:relative;z-index:10;display:grid;grid-template-columns:145px 1fr 145px;align-items:end;padding:14px 38px 8px;gap:14px}
-.cpb{width:118px;height:148px;background:rgba(13,74,138,.06);border:2px solid rgba(13,74,138,.17);display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* ═══ CERTIFICATE DESIGN ═══ */
+.cert{width:794px;min-height:1050px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif}
+.cert-border-outer{position:absolute;inset:8px;border:1px solid rgba(201,168,76,.35);z-index:5;pointer-events:none}
+.cert-border-inner{position:absolute;inset:15px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none}
+.cert-corner{position:absolute;width:45px;height:45px;z-index:6;pointer-events:none}
+.cert-corner.tl{top:6px;left:6px;border-top:3px solid var(--gold);border-left:3px solid var(--gold)}
+.cert-corner.tr{top:6px;right:6px;border-top:3px solid var(--gold);border-right:3px solid var(--gold)}
+.cert-corner.bl{bottom:6px;left:6px;border-bottom:3px solid var(--gold);border-left:3px solid var(--gold)}
+.cert-corner.br{bottom:6px;right:6px;border-bottom:3px solid var(--gold);border-right:3px solid var(--gold)}
+.cwt{position:absolute;top:0;left:0;right:0;height:180px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.6) 50%,rgba(13,140,202,.3) 100%);clip-path:ellipse(110% 100% at 50% 0);z-index:1}
+.cwb{position:absolute;bottom:0;left:0;right:0;height:110px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.5) 100%);clip-path:ellipse(110% 100% at 50% 100%);z-index:1}
+.cwt2{position:absolute;top:80px;left:-50px;right:-50px;height:120px;border-bottom:1px solid rgba(201,168,76,.15);border-radius:0 0 50% 50%;z-index:2;pointer-events:none}
+.cwb2{position:absolute;bottom:25px;left:-50px;right:-50px;height:90px;border-top:1px solid rgba(201,168,76,.15);border-radius:50% 50% 0 0;z-index:2;pointer-events:none}
+.cwm{position:absolute;top:50%;left:-15%;width:130%;transform:translateY(-50%) rotate(-30deg);font-family:'Barlow Condensed',sans-serif;font-size:4rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:2.5}
+.ch{position:relative;z-index:10;padding:22px 44px 10px;display:flex;justify-content:space-between;align-items:flex-start}
+.cla{display:flex;align-items:center;gap:12px}
+.clc{width:70px;height:70px;border-radius:50%;background:rgba(201,168,76,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;color:var(--gold);box-shadow:0 0 20px rgba(201,168,76,.2);flex-shrink:0;letter-spacing:.05em;text-align:center;line-height:1.3}
+.clt{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6}
+.cert-title-area{position:relative;z-index:10;text-align:center;padding:24px 44px 10px}
+.cert-title-main{font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:600;color:#f0d980;line-height:1;margin-bottom:5px;letter-spacing:.04em;text-shadow:0 2px 12px rgba(201,168,76,.3)}
+.cert-title-sub{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:rgba(201,168,76,.7);letter-spacing:.06em}
+.cert-emblem-area{display:flex;justify-content:center;position:relative;z-index:10;padding:10px 0 8px}
+.cert-emblem{width:112px;height:112px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(201,168,76,.25),rgba(201,168,76,.08));border:3px solid var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(201,168,76,.15),0 0 30px rgba(201,168,76,.2),inset 0 0 20px rgba(201,168,76,.05);font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;color:var(--gold);text-align:center;letter-spacing:.06em;position:relative}
+.cert-emblem-stars{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--gold);letter-spacing:.3em;white-space:nowrap;text-shadow:0 0 8px rgba(201,168,76,.5)}
+.cert-emblem-text{font-size:.78rem;font-weight:700;letter-spacing:.1em;color:var(--gold)}
+.cert-emblem-sub{font-size:.46rem;letter-spacing:.18em;color:rgba(201,168,76,.7);margin-top:2px}
+.cert-divider{margin:0 44px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.2),rgba(201,168,76,.6),rgba(201,168,76,.2),transparent);position:relative;z-index:10}
+.cert-recipient{position:relative;z-index:10;text-align:center;padding:18px 60px}
+.cert-presents{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:rgba(201,168,76,.65);margin-bottom:8px;letter-spacing:.06em}
+.cert-name{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)}
+.cert-awarded-text{font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:rgba(201,168,76,.65);margin-bottom:6px}
+.cert-level{font-family:'Cormorant Garamond',serif;font-size:1.75rem;font-weight:700;color:var(--gold);letter-spacing:.03em}
+.cert-level-line{width:80px;height:2px;background:linear-gradient(to right,transparent,var(--gold),transparent);margin:10px auto 0}
+.cert-bottom{position:relative;z-index:10;display:grid;grid-template-columns:140px 1fr 160px;align-items:end;padding:18px 44px 14px;gap:16px}
+.cpb{width:118px;height:150px;background:rgba(201,168,76,.05);border:1.5px solid rgba(201,168,76,.25);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .cpb img{width:100%;height:100%;object-fit:cover}
-.cpp{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(13,74,138,.32);text-align:center;padding:6px}
-.cdc{text-align:center}
-.cnd{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:600;color:#0d4a8a;margin-bottom:2px}
-.ctbox{display:flex;flex-direction:column;gap:2px;margin-top:10px}
-.ctsi{font-family:'Dancing Script',cursive;font-size:1.35rem;color:#0d4a8a;border-bottom:1px solid rgba(13,74,138,.22);padding-bottom:3px;margin-bottom:3px}
-.ctla{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#1565c0}
-.cqr{display:flex;flex-direction:column;align-items:center;gap:5px}
+.cpp{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:6px}
+.cert-sig-area{text-align:center}
+.cert-dates{display:flex;gap:20px;justify-content:center;margin-bottom:16px}
+.cert-date-item{text-align:center;padding:6px 12px;border:0.5px solid rgba(201,168,76,.2);background:rgba(201,168,76,.04)}
+.cert-date-label{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55);margin-bottom:3px}
+.cert-date-val{font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0}
+.cert-sig-line{border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:5px;margin-bottom:6px}
+.cert-sig-name{font-family:'Dancing Script',cursive;font-size:1.6rem;color:var(--gold);font-weight:600}
+.cert-sig-title{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.6)}
+.cert-sig-trname{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;color:#f8f6f0;margin-top:8px}
+.cert-sig-trstars{font-size:.9rem;color:var(--gold);letter-spacing:.1em}
+.cert-sig-trno{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;color:rgba(201,168,76,.45);letter-spacing:.08em}
+.cert-qr-col{display:flex;flex-direction:column;align-items:center;gap:5px}
+.cert-tr-photo{width:82px;height:98px;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.25);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:4px}
+.cert-tr-photo img{width:100%;height:100%;object-fit:cover}
+.cert-tr-photo-ph{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center}
+.cqrb{width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px}
+.cqrb svg,.cqrb img{width:100%;height:100%;display:block}
+.cqrl{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center}
+.cert-footer{position:relative;z-index:10;text-align:center;padding:6px 44px 12px}
+.cert-footer-text{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;letter-spacing:.1em;color:rgba(201,168,76,.4)}
+.cert-wsf-stamp{position:absolute;right:50px;bottom:110px;width:70px;height:70px;border-radius:50%;border:2px solid rgba(201,168,76,.12);display:flex;align-items:center;justify-content:center;z-index:4;transform:rotate(-15deg)}
+.cert-wsf-stamp-inner{font-family:'Barlow Condensed',sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.12);text-align:center;line-height:1.4}
 
-.cqrl{font-family:'Barlow Condensed',sans-serif;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.5);text-align:center}
-.cfs{position:relative;z-index:10;text-align:center;padding:5px 38px 8px}
-.cft{font-family:'Barlow Condensed',sans-serif;font-size:.56rem;letter-spacing:.1em;color:rgba(13,74,138,.58)}
+/* GOLDEN BADGE */
+.cert-gold-badge{position:absolute;bottom:90px;left:50px;width:100px;height:100px;z-index:20;pointer-events:none}
+.cert-gold-badge svg{width:100%;height:100%;filter:drop-shadow(0 4px 12px rgba(201,168,76,.5))}
+
+/* ═══ LICENSE DESIGN ═══ */
+.license-doc{width:794px;min-height:500px;background:#fff;position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif}
+.lic-border{position:absolute;inset:6px;border:1.5px solid rgba(13,74,138,.12);z-index:5;pointer-events:none}
+.lic-corner{position:absolute;width:30px;height:30px;z-index:6;pointer-events:none}
+.lic-corner.tl{top:4px;left:4px;border-top:2px solid var(--gold);border-left:2px solid var(--gold)}
+.lic-corner.tr{top:4px;right:4px;border-top:2px solid var(--gold);border-right:2px solid var(--gold)}
+.lic-corner.bl{bottom:4px;left:4px;border-bottom:2px solid var(--gold);border-left:2px solid var(--gold)}
+.lic-corner.br{bottom:4px;right:4px;border-bottom:2px solid var(--gold);border-right:2px solid var(--gold)}
+.lic-left-stripe{position:absolute;left:0;top:0;bottom:0;width:180px;background:linear-gradient(180deg,#0a2558 0%,#1565c0 60%,#0a2558 100%);z-index:2}
+.lic-left-stripe-pattern{position:absolute;left:0;top:0;bottom:0;width:180px;z-index:3;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0px,rgba(255,255,255,.03) 1px,transparent 1px,transparent 8px)}
+.lic-main{position:relative;z-index:10;margin-left:180px;padding:28px 28px 20px 24px}
+.lic-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(13,74,138,.1)}
+.lic-org-name{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:700;color:#0a2558;margin-bottom:2px}
+.lic-title-badge{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:#0a2558;color:var(--gold);padding:3px 10px;display:inline-block}
+.lic-photo{width:90px;height:110px;background:rgba(13,74,138,.05);border:1.5px solid rgba(13,74,138,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.lic-photo img{width:100%;height:100%;object-fit:cover}
+.lic-photo-ph{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.3);text-align:center}
+.lic-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:14px}
+.lic-field{border-bottom:0.5px solid rgba(13,74,138,.1);padding-bottom:6px}
+.lic-field-label{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(13,74,138,.45);margin-bottom:2px}
+.lic-field-val{font-family:'Barlow Condensed',sans-serif;font-size:.85rem;font-weight:600;color:#0a2558}
+.lic-field-val.gold{color:var(--gold);font-size:.95rem}
+.lic-bottom{display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:0.5px solid rgba(13,74,138,.1)}
+.lic-sig-block{}
+.lic-sig-name{font-family:'Dancing Script',cursive;font-size:1.3rem;color:#0a2558;font-weight:600;border-bottom:1px solid rgba(13,74,138,.2);padding-bottom:3px;margin-bottom:3px}
+.lic-sig-title{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#1565c0}
+.lic-qr-area{display:flex;flex-direction:column;align-items:center;gap:3px}
+.lic-qrb{width:70px;height:70px;background:white;border:1px solid rgba(13,74,138,.15);border-radius:2px;padding:3px}
+.lic-qrb svg,.lic-qrb img{width:100%;height:100%;display:block}
+.lic-qrl{font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.45);text-align:center}
+/* Left stripe content */
+.lic-left-content{position:absolute;left:0;top:0;bottom:0;width:180px;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:20px 12px}
+.lic-left-emblem{width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:.62rem;font-weight:700;color:white;letter-spacing:.05em;text-align:center}
+.lic-left-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(255,255,255,.9);text-align:center;line-height:1.3}
+.lic-left-auth{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.8);text-align:center}
+.lic-left-stars{font-size:.9rem;color:var(--gold);letter-spacing:.15em;text-align:center}
+.lic-valid-badge{background:rgba(0,200,100,.12);border:1px solid rgba(0,200,100,.3);color:#16a34a;font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 10px;text-align:center}
+.lic-tr-photo-area{display:flex;flex-direction:column;align-items:center;gap:4px}
+.lic-tr-photo{width:55px;height:65px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.lic-tr-photo img{width:100%;height:100%;object-fit:cover}
+.lic-tr-photo-label{font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:center}
+
 @media print{body>*:not(#CM){display:none!important}#CM{display:flex!important;position:static;background:#fff;padding:0;overflow:visible}.cmc{display:none!important}}
-@media(max-width:820px){.fgrid{grid-template-columns:1fr}.cert{width:100%}}
+@media(max-width:820px){.fgrid{grid-template-columns:1fr}.cert{width:100%}.license-doc{width:100%}}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -335,148 +478,333 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
     <div class="lemb">W</div>
     <h1 class="ltitle">Trainer Portal</h1>
     <span class="lsub">Water Sport Federation</span>
-    <div class="fg">
-      <label>Username</label>
-      <input type="text" id="LU" placeholder="e.g. bilal.jafar">
-    </div>
-    <div class="fg">
-      <label>Password</label>
-      <input type="password" id="LP" placeholder="enter password">
-    </div>
+    <div class="fg"><label>Username</label><input type="text" id="LU" placeholder="e.g. bilal.jafar"></div>
+    <div class="fg"><label>Password</label><input type="password" id="LP" placeholder="enter password"></div>
     <button class="lbtn" onclick="doLogin()">Login to Portal</button>
-    <div id="LE" class="lerr">Incorrect username or password. Please try again.</div>
+    <div id="LE" class="lerr">Incorrect username or password.</div>
     <p class="lnote">Restricted to WSF-accredited trainers only.</p>
   </div>
 </div>
 
 <div id="PS">
   <div class="ph">
-    <div class="pw">Welcome, <span id="WN">Trainer</span> &nbsp;<span id="PORTALSTARS" style="color:#c9a84c;letter-spacing:.1em"></span></div>
+    <div class="pw">Welcome, <span id="WN">Trainer</span> <span id="PORTALSTARS"></span></div>
     <button class="logoutbtn" onclick="doLogout()">Log Out</button>
   </div>
   <div class="pbody">
+
+    <!-- Trainer photo profile box -->
     <div style="background:var(--mid);border:1px solid rgba(201,168,76,.15);padding:1.2rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:1.5rem;">
-      <div id="TPTHUMB" style="width:60px;height:75px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:1.5rem;color:rgba(255,255,255,.3);">
-        <img id="TPTHUMBIMG" alt="" style="display:none;width:100%;height:100%;object-fit:cover;">
-        <span id="TPIC">&#128100;</span>
-      </div>
+      <div class="pthumb" id="PT"><img id="TPTHUMBIMG" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="TPIC" style="font-size:1.5rem">&#128100;</span></div>
       <div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem;">Your Profile Photo</div>
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem;">Saved to your profile automatically. Only needs to be uploaded once — appears above the QR code on every certificate.</p>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem">Your Profile Photo</div>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">Saved automatically. Appears above the QR code on every document you issue.</p>
         <button class="pubtn" onclick="document.getElementById('TPFI').click()">Upload My Photo</button>
         <input type="file" id="TPFI" accept="image/*" style="display:none" onchange="handleTrainerPhoto(this)">
         <div id="TPFN" style="font-size:.7rem;color:var(--gold);margin-top:.3rem;display:none;font-family:'Barlow Condensed',sans-serif;"></div>
       </div>
     </div>
-    <span class="stag">Trainer Portal</span>
-    <h2 class="stitle">Issue a <strong>Certificate</strong></h2>
+
+    <span class="stag">Issue Documents</span>
+    <h2 class="stitle">Certificate & <strong>License</strong></h2>
     <div class="divl"></div>
-    <div class="ibox">
-      <div class="fgrid">
-        <div class="fg"><label>First Name *</label><input type="text" id="FF" placeholder="Sara"></div>
-        <div class="fg"><label>Last Name *</label><input type="text" id="FL" placeholder="Al-Rashid"></div>
-        <div class="fg"><label>Date of Birth</label><input type="text" id="FB" placeholder="DD/MM/YYYY"></div>
-        <div class="fg"><label>Nationality</label><input type="text" id="FN" placeholder="e.g. Jordanian"></div>
-        <div class="fg full">
-          <label>Certification Level *</label>
-          <select id="FV">
-            <optgroup label="Swimming">
-              <option>Swimming - Beginner Level 1</option>
-              <option>Swimming - Intermediate Level 2</option>
-              <option>Swimming - Advanced Level 3</option>
-            </optgroup>
-            <optgroup label="Infant Swimming">
-              <option>Aqua Baby - Infant Swimming Level 1</option>
-              <option>Aqua Toddler - Infant Swimming Level 2</option>
-              <option>Aqua Junior - Infant Swimming Level 3</option>
-            </optgroup>
-            <optgroup label="Instructor">
-              <option>Baby Swimming Instructor L1</option>
-              <option>Baby Swimming Instructor L2</option>
-              <option>Master Instructor Trainer</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="fg"><label>Issue Date *</label><input type="text" id="FD" placeholder="DD/MM/YYYY"></div>
-        <div class="fg"><label>Certificate No. *</label><input type="text" id="FC" placeholder="e.g. JOR-00001"></div>
-        <div class="fg full pua">
-          <div class="pthumb" id="PT">
-            <img id="PTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-            <span id="PIC">&#128444;</span>
-          </div>
-          <div class="puinfo">
-            <p><strong>Trainee Photo</strong> (optional) - Upload a passport photo for the certificate.</p>
-            <button class="pubtn" onclick="pickPhoto()">Choose Photo</button>
-            <input type="file" id="PFI" accept="image/*" style="display:none" onchange="handlePhoto(this)">
-            <div class="pfn" id="PFN"></div>
-          </div>
-        </div>
-      </div>
-      <button class="ibtn" onclick="generateCert()">Generate Certificate</button>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn tab-active" id="tabCert" onclick="switchTab('cert')">Certificate of Attendance</button>
+      <button class="tab-btn" id="tabLic" onclick="switchTab('lic')">Teaching License</button>
     </div>
+
+    <!-- CERT FORM -->
+    <div id="certForm">
+      <div class="ibox">
+        <div class="fgrid">
+          <div class="fg"><label>First Name *</label><input type="text" id="FF" placeholder="Sara"></div>
+          <div class="fg"><label>Last Name *</label><input type="text" id="FL" placeholder="Al-Rashid"></div>
+          <div class="fg"><label>Date of Birth</label><input type="text" id="FB" placeholder="DD/MM/YYYY"></div>
+          <div class="fg"><label>Nationality</label><input type="text" id="FN" placeholder="e.g. Jordanian"></div>
+          <div class="fg full">
+            <label>Certification Level *</label>
+            <select id="FV">
+              <optgroup label="Swimming">
+                <option>Swimming - Beginner Level 1</option>
+                <option>Swimming - Intermediate Level 2</option>
+                <option>Swimming - Advanced Level 3</option>
+              </optgroup>
+              <optgroup label="Infant Swimming">
+                <option>Aqua Baby - Infant Swimming Level 1</option>
+                <option>Aqua Toddler - Infant Swimming Level 2</option>
+                <option>Aqua Junior - Infant Swimming Level 3</option>
+              </optgroup>
+              <optgroup label="Instructor">
+                <option>Baby Swimming Instructor L1</option>
+                <option>Baby Swimming Instructor L2</option>
+                <option>Master Instructor Trainer</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="fg"><label>Issue Date *</label><input type="text" id="FD" placeholder="DD/MM/YYYY"></div>
+          <div class="fg"><label>Certificate No. (auto-generated)</label><input type="text" id="FC" placeholder="WSF-2026-..."></div>
+          <div class="fg full pua">
+            <div class="pthumb" id="PT2"><img id="PTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="PIC" style="font-size:1.5rem">&#128444;</span></div>
+            <div class="puinfo">
+              <p><strong>Trainee Photo</strong> (optional) — appears on the certificate.</p>
+              <button class="pubtn" onclick="pickPhoto()">Choose Photo</button>
+              <input type="file" id="PFI" accept="image/*" style="display:none" onchange="handlePhoto(this)">
+              <div class="pfn" id="PFN"></div>
+            </div>
+          </div>
+        </div>
+        <button class="ibtn" onclick="generateCert()">Generate Certificate</button>
+      </div>
+    </div>
+
+    <!-- LICENSE FORM -->
+    <div id="licForm" style="display:none">
+      <div class="ibox">
+        <div class="fgrid">
+          <div class="fg"><label>First Name *</label><input type="text" id="LFN" placeholder="Ahmad"></div>
+          <div class="fg"><label>Last Name *</label><input type="text" id="LLN" placeholder="Al-Hassan"></div>
+          <div class="fg"><label>Date of Birth</label><input type="text" id="LDOB" placeholder="DD/MM/YYYY"></div>
+          <div class="fg"><label>Nationality</label><input type="text" id="LNAT" placeholder="e.g. Jordanian"></div>
+          <div class="fg full">
+            <label>Teaching Specialty *</label>
+            <select id="LSP">
+              <option>Baby Swimming Instructor</option>
+              <option>Infant Aquatics Specialist</option>
+              <option>Swimming Coach Level 1</option>
+              <option>Swimming Coach Level 2</option>
+              <option>Swimming Coach Level 3</option>
+              <option>Water Safety Instructor</option>
+              <option>Lifeguard Instructor</option>
+              <option>SUP Instructor</option>
+              <option>Kayaking Instructor</option>
+              <option>Water Polo Coach</option>
+              <option>Master Instructor Trainer</option>
+            </select>
+          </div>
+          <div class="fg"><label>Issue Date *</label><input type="text" id="LD" placeholder="DD/MM/YYYY"></div>
+          <div class="fg"><label>License No. (auto-generated)</label><input type="text" id="LC" placeholder="WSF-2026-..."></div>
+          <div class="fg full pua">
+            <div class="pthumb"><img id="LPTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="LPIC" style="font-size:1.5rem">&#128444;</span></div>
+            <div class="puinfo">
+              <p><strong>Holder Photo</strong> (optional) — appears on the license.</p>
+              <button class="pubtn" onclick="pickLicensePhoto()">Choose Photo</button>
+              <input type="file" id="LPFI" accept="image/*" style="display:none" onchange="handleLicensePhoto(this)">
+              <div class="pfn" id="LPFN"></div>
+            </div>
+          </div>
+        </div>
+        <button class="ibtn" onclick="generateLicense()">Generate License</button>
+      </div>
+    </div>
+
+    <!-- ISSUED LIST -->
     <span class="stag">Issued This Session</span>
-    <h2 class="stitle" style="font-size:1.5rem;margin-bottom:1rem;">Certificate <strong>History</strong></h2>
-    <div class="ilist" id="IL"><div class="empty">No certificates issued yet this session</div></div>
+    <h2 class="stitle" style="font-size:1.5rem;margin-bottom:1rem;">Document <strong>History</strong></h2>
+    <div class="ilist" id="IL"><div class="empty">No documents issued yet this session</div></div>
   </div>
 </div>
 
-<div class="cmo" id="CM" style="display:none">
+<!-- MODAL -->
+<div class="cmo" id="CM" onclick="if(event.target===this)closeCertModal()">
   <div class="cmc">
-    <button class="cbtn pr" onclick="printCert()">Print / Save PDF</button>
+    <button class="cbtn pr" id="DLBTN" onclick="downloadPDF()">Download PDF</button>
+    <button class="cbtn pr" onclick="window.print()" style="background:var(--navy-light,#1a3360);color:white">Print</button>
     <button class="cbtn cl" onclick="closeCertModal()">Close</button>
   </div>
-  <div class="cert" id="CERTDIV">
-    
-    <div class="cwm">Water Sport Federation WSF Water Sport Federation WSF</div>
+
+  <!-- CERTIFICATE VIEW -->
+  <div id="certView">
+  <div class="cert">
+    <div class="cert-border-outer"></div>
+    <div class="cert-border-inner"></div>
+    <div class="cert-corner tl"></div><div class="cert-corner tr"></div>
+    <div class="cert-corner bl"></div><div class="cert-corner br"></div>
+    <div class="cwm">Water Sport Federation WSF Water Sport Federation WSF Water Sport Federation</div>
     <div class="cwt"></div><div class="cwb"></div>
     <div class="cwt2"></div><div class="cwb2"></div>
     <div class="ch">
       <div class="cla">
-        <div class="clc" style="font-size:.65rem;letter-spacing:.05em">WSF</div>
-        <div class="clt">Water Sport Federation<br><span style="font-weight:300;opacity:.8">watersportfederation.org</span></div>
+        <div class="clc">WSF<br><span style="font-size:.4rem;opacity:.8">CERTIFIED</span></div>
+        <div class="clt">Water Sport Federation<br><span style="font-weight:400;opacity:.85;font-size:.68rem">watersportfederation.org</span><br><span style="font-weight:400;opacity:.7;font-size:.62rem">Swiss Registered NPO</span></div>
       </div>
-
     </div>
-    <div class="cta2">
-      <div class="ctb">Certificate</div>
-      <div class="cts">Water Sport Federation</div>
+    <div class="cert-title-area">
+      <div class="cert-title-main">Certificate of Attendance</div>
+      <div class="cert-title-sub">Water Sport Federation — International Certification Programme</div>
     </div>
-    <div class="cemba">
-      <div class="cemb" style="font-size:.7rem;letter-spacing:.08em">WSF</div>
+    <div class="cert-emblem-area">
+      <div class="cert-emblem">
+        <div class="cert-emblem-stars">&#9733; &#9733; &#9733;</div>
+        <div class="cert-emblem-text">WSF</div>
+        <div class="cert-emblem-sub">INTERNATIONAL</div>
+      </div>
     </div>
-    <div class="cra">
-      <div class="crh">Herewith certify that</div>
-      <div class="crn" id="CNME">-</div>
-      <div class="crq">Has successfully fulfilled the requirements for the qualification of</div>
-      <div class="crl" id="CLVL">-</div>
+    <div class="cert-divider"></div>
+    <div class="cert-recipient">
+      <div class="cert-presents">This is to certify that</div>
+      <div class="cert-name" id="CNME">-</div>
+      <div class="cert-awarded-text">has successfully completed the requirements for</div>
+      <div class="cert-level" id="CLVL">-</div>
+      <div class="cert-level-line"></div>
     </div>
-    <div class="cbot">
-      <div class="cpb"><img id="CPI" alt="" style="display:none"><div class="cpp" id="CPP">Photo</div></div>
-      <div class="cdc">
-        <div class="cnd">Certificate No: <strong id="CNO">-</strong></div>
-        <div class="cnd">Date: <strong id="CDT">-</strong></div>
-        <div class="ctbox">
-          <div class="ctsi">Mohammad Almassri</div>
-          <div class="ctla">Trainer No: <span id="CTN">-</span></div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(13,74,138,.15);">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:#1565c0;margin-bottom:3px">Issued by Trainer</div>
-            <div id="CTRNAME" style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:#0d4a8a;line-height:1.2">-</div>
-            <div id="CTRSTARS" style="font-size:1rem;color:#c9a84c;letter-spacing:.15em;margin-top:3px">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          </div>
-          <div style="margin-top:6px;font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#1565c0">In the name of WSF</div>
+    <div class="cert-bottom">
+      <div class="cpb"><img id="CPI" alt="" style="display:none"><div class="cpp" id="CPP">Trainee<br>Photo</div></div>
+      <div class="cert-sig-area">
+        <div class="cert-dates">
+          <div class="cert-date-item"><div class="cert-date-label">Issue Date</div><div class="cert-date-val" id="CDT">-</div></div>
+          <div class="cert-date-item"><div class="cert-date-label">Valid Until</div><div class="cert-date-val" id="CEXP" style="color:var(--gold)">-</div></div>
+          <div class="cert-date-item"><div class="cert-date-label">Certificate No.</div><div class="cert-date-val" id="CNO" style="font-size:.72rem;letter-spacing:.05em">-</div></div>
+        </div>
+        <div class="cert-sig-line">
+          <div class="cert-sig-name">Mohammad Almassri</div>
+        </div>
+        <div class="cert-sig-title">President - Water Sport Federation</div>
+        <div style="margin-top:10px;padding-top:8px;border-top:0.5px solid rgba(13,74,138,.1)">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:3px">Issued by</div>
+          <div class="cert-sig-trname" id="CTRNAME">-</div>
+          <div class="cert-sig-trstars" id="CTRSTARS"></div>
+          <div class="cert-sig-trno" id="CTN">-</div>
         </div>
       </div>
-      <div class="cqr">
-        <div id="TRPHOTOBOX" style="width:88px;height:100px;background:rgba(13,74,138,.06);border:2px solid rgba(13,74,138,.17);overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:5px;">
-          <img id="TRPHOTOIMG" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
-          <span id="TRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.35);text-align:center;padding:4px;">Trainer<br>Photo</span>
+      <div class="cert-qr-col">
+        <div class="cert-tr-photo" id="TRPHOTOBOX">
+          <img id="TRPHOTOIMG" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+          <div class="cert-tr-photo-ph" id="TRPHOTOPH">Trainer<br>Photo</div>
         </div>
-        <div class="cqrb" id="QRCODE" style="width:88px;height:88px;background:#fff;border:2px solid rgba(13,74,138,.18);border-radius:3px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+        <div class="cqrb" id="QRCODE"></div>
         <div class="cqrl">Scan to verify<br>watersportfederation.org</div>
       </div>
     </div>
-    <div class="cfs"><div class="cft">For any information about the certificate holder please check at: watersportfederation.org</div></div>
+    <div class="cert-footer"><div class="cert-footer-text">This certificate is issued by the Water Sport Federation and can be verified at watersportfederation.org</div></div>
+
+    <!-- GOLDEN BADGE -->
+    <div class="cert-gold-badge">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="badgeGrad" cx="40%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#f5e070"/>
+            <stop offset="40%" stop-color="#c9a84c"/>
+            <stop offset="100%" stop-color="#8a6820"/>
+          </radialGradient>
+          <radialGradient id="badgeInner" cx="40%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#f5e070"/>
+            <stop offset="60%" stop-color="#c9a84c"/>
+            <stop offset="100%" stop-color="#a07828"/>
+          </radialGradient>
+        </defs>
+        <!-- Outer star burst rays -->
+        <g transform="translate(50,50)">
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(0)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(22.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(45)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(67.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(90)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(112.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(135)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(157.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(180)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(202.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(225)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(247.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(270)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(292.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(315)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(337.5)"/>
+        </g>
+        <!-- Main circle -->
+        <circle cx="50" cy="50" r="32" fill="url(#badgeGrad)"/>
+        <!-- Inner ring -->
+        <circle cx="50" cy="50" r="29" fill="none" stroke="#f5e070" stroke-width="1"/>
+        <circle cx="50" cy="50" r="26" fill="url(#badgeInner)"/>
+        <!-- Inner circle dark bg -->
+        <circle cx="50" cy="50" r="24" fill="#0a1628"/>
+        <!-- Inner ring accent -->
+        <circle cx="50" cy="50" r="22" fill="none" stroke="#c9a84c" stroke-width="0.8"/>
+        <!-- WSF text -->
+        <text x="50" y="46" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-size="9" font-weight="700" fill="#c9a84c" letter-spacing="2">WSF</text>
+        <!-- Star -->
+        <text x="50" y="54" text-anchor="middle" font-family="serif" font-size="7" fill="#c9a84c">&#9733;</text>
+        <!-- Bottom curved text path -->
+        <path id="badgeArc" d="M 22,50 A 28,28 0 0 0 78,50" fill="none"/>
+        <text font-family="Barlow Condensed, sans-serif" font-size="5.5" font-weight="700" fill="#c9a84c" letter-spacing="1">
+          <textPath href="#badgeArc" startOffset="10%">CERTIFIED &bull; AUTHENTIC</textPath>
+        </text>
+        <!-- Outer text ring -->
+        <path id="outerRing" d="M 50,50 m -38,0 a 38,38 0 1 1 76,0 a 38,38 0 1 1 -76,0" fill="none"/>
+        <text font-family="Barlow Condensed, sans-serif" font-size="5" font-weight="700" fill="#c9a84c" letter-spacing="2.5">
+          <textPath href="#outerRing" startOffset="5%">WATER SPORT FEDERATION &bull; SEAL &bull; </textPath>
+        </text>
+      </svg>
+    </div>
+
   </div>
+  </div>
+
+  <!-- LICENSE VIEW -->
+  <div id="licView" style="display:none">
+  <div class="license-doc">
+    <div class="lic-border"></div>
+    <div class="lic-corner tl"></div><div class="lic-corner tr"></div>
+    <div class="lic-corner bl"></div><div class="lic-corner br"></div>
+    <div class="lic-left-stripe"></div>
+    <div class="lic-left-stripe-pattern"></div>
+    <div class="lic-left-content">
+      <div class="lic-left-emblem">WSF<br><span style="font-size:.42rem;opacity:.7">CERTIFIED</span></div>
+      <div>
+        <div class="lic-left-title">Teaching<br>License</div>
+        <div style="height:8px"></div>
+        <div class="lic-left-auth">Authorized to Teach</div>
+      </div>
+      <div class="lic-tr-photo-area">
+        <div class="lic-tr-photo">
+          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);text-align:center;padding:4px">Trainer<br>Photo</div>
+        </div>
+        <div class="lic-tr-photo-label">Issuing Trainer</div>
+      </div>
+      <div class="lic-left-stars" id="LTRSTARS"></div>
+      <div class="lic-valid-badge">VALID</div>
+    </div>
+    <div class="lic-main">
+      <div class="lic-header">
+        <div>
+          <div class="lic-org-name">Water Sport Federation</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:.62rem;color:rgba(13,74,138,.55);letter-spacing:.08em">watersportfederation.org &nbsp;|&nbsp; Swiss NPO</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div class="lic-photo"><img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><div class="lic-photo-ph" id="LCPP">Holder<br>Photo</div></div>
+          <div>
+            <div class="lic-title-badge">Teaching License</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#0a2558;line-height:1;margin-top:6px" id="LNAME">-</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.1em;color:#1565c0;margin-top:2px" id="LSPEC">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="lic-fields">
+        <div class="lic-field"><div class="lic-field-label">License No.</div><div class="lic-field-val gold" id="LNO">-</div></div>
+        <div class="lic-field"><div class="lic-field-label">Date of Birth</div><div class="lic-field-val" id="LDOB2">-</div></div>
+        <div class="lic-field"><div class="lic-field-label">Issue Date</div><div class="lic-field-val" id="LDATE">-</div></div>
+        <div class="lic-field"><div class="lic-field-label">Valid Until</div><div class="lic-field-val" style="color:var(--gold)" id="LEXP2">-</div></div>
+        <div class="lic-field"><div class="lic-field-label">Nationality</div><div class="lic-field-val" id="LNAT2">-</div></div>
+        <div class="lic-field"><div class="lic-field-label">Issued By Trainer</div><div class="lic-field-val" id="LTRNAME">-</div></div>
+      </div>
+      <div class="lic-bottom">
+        <div class="lic-sig-block">
+          <div class="lic-sig-name">Mohammad Almassri</div>
+          <div class="lic-sig-title">President - Water Sport Federation</div>
+          <div style="margin-top:4px;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;color:rgba(13,74,138,.45);letter-spacing:.08em" id="LTRNO">-</div>
+        </div>
+        <div class="lic-qr-area">
+          <div class="lic-qrb" id="LQRCODE"></div>
+          <div class="lic-qrl">Scan to verify<br>watersportfederation.org</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
 </div>
 
 </body>
