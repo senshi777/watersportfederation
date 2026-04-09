@@ -18,9 +18,28 @@ function getSupabase() {
   return supaClient;
 }
 
+function compressPhoto(dataUrl, maxW, maxH, quality) {
+  return new Promise(function(resolve) {
+    if (!dataUrl) { resolve(null); return; }
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var ratio = Math.min(maxW/img.width, maxH/img.height, 1);
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality || 0.7));
+    };
+    img.onerror = function() { resolve(null); };
+    img.src = dataUrl;
+  });
+}
+
 async function saveToSupabase(data) {
   var db = getSupabase();
   if (!db) { console.warn('Supabase not loaded'); return; }
+  // Compress photo to 120x160px thumbnail before saving
+  var photoThumb = await compressPhoto(data.photo, 120, 160, 0.7);
   var record = {
     type: data.type,
     name: data.name,
@@ -34,7 +53,7 @@ async function saveToSupabase(data) {
     trainer_name: data.trainerName || null,
     trainer_no: currentTrainer ? currentTrainer.no : null,
     status: 'active',
-    photo_url: data.photo || null
+    photo_url: photoThumb || null
   };
   var result = await db.from('members').upsert(record, {onConflict: 'cert_id'});
   if (result.error) {
@@ -267,7 +286,8 @@ function showCert(c) {
   currentDocType="cert";
   document.getElementById("certView").style.display="block";
   document.getElementById("licView").style.display="none";
-  document.getElementById("DLBTN").textContent="Download Certificate PDF";
+  document.getElementById("DLBTN_CERT").style.display="block";
+  document.getElementById("DLBTN_LIC").style.display="none";
   document.getElementById("CM").style.display="flex";
   document.body.style.overflow="hidden";
 }
@@ -294,7 +314,8 @@ function showLicense(c) {
   currentDocType="license";
   document.getElementById("licView").style.display="block";
   document.getElementById("certView").style.display="none";
-  document.getElementById("DLBTN").textContent="Download License PDF";
+  document.getElementById("DLBTN_LIC").style.display="block";
+  document.getElementById("DLBTN_CERT").style.display="none";
   document.getElementById("CM").style.display="flex";
   document.body.style.overflow="hidden";
 }
@@ -304,46 +325,44 @@ function closeCertModal() {
   document.body.style.overflow="";
 }
 
-async function downloadPDF() {
-  var btn = document.getElementById("DLBTN");
-  btn.textContent = "Generating...";
-  btn.disabled = true;
+async function downloadCertPDF() {
+  var btn = document.getElementById("DLBTN_CERT");
+  btn.textContent = "Generating..."; btn.disabled = true;
   try {
-    if (currentDocType === "license") {
-      // ── LICENSE: credit card 85.6 x 54 mm, 2 pages ──
-      var front = document.getElementById("licFront");
-      var back  = document.getElementById("licBack");
-      if (!front) { alert("Generate a license first."); btn.textContent="Download License PDF"; btn.disabled=false; return; }
-      var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6,54]});
-      var c1 = await html2canvas(front, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-      pdf.addImage(c1.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
-      if (back) {
-        pdf.addPage([85.6,54],"landscape");
-        var c2 = await html2canvas(back, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-        pdf.addImage(c2.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
-      }
-      var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
-      pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
-    } else {
-      // ── CERTIFICATE: A4 portrait ──
-      var docEl = document.querySelector(".cert");
-      if (!docEl) { alert("Generate a certificate first."); btn.textContent="Download Certificate PDF"; btn.disabled=false; return; }
-      var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
-      var pdfW = pdf.internal.pageSize.getWidth();
-      var pdfH = pdf.internal.pageSize.getHeight();
-      var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-      var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
-      var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
-      pdf.addImage(canvas.toDataURL("image/jpeg",0.95), "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
-      var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
-      pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
+    var docEl = document.querySelector(".cert");
+    if (!docEl) { alert("No certificate to download."); btn.textContent="Download Certificate PDF"; btn.disabled=false; return; }
+    var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+    var pdfW = pdf.internal.pageSize.getWidth();
+    var pdfH = pdf.internal.pageSize.getHeight();
+    var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+    var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
+    var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
+    pdf.addImage(canvas.toDataURL("image/jpeg",0.95), "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
+    var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
+    pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
+  } catch(e) { alert("PDF failed: " + e.message); }
+  btn.textContent = "Download Certificate PDF"; btn.disabled = false;
+}
+
+async function downloadLicPDF() {
+  var btn = document.getElementById("DLBTN_LIC");
+  btn.textContent = "Generating..."; btn.disabled = true;
+  try {
+    var front = document.getElementById("licFront");
+    var back  = document.getElementById("licBack");
+    if (!front) { alert("No license to download."); btn.textContent="Download License PDF"; btn.disabled=false; return; }
+    var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6, 54]});
+    var c1 = await html2canvas(front, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+    pdf.addImage(c1.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
+    if (back) {
+      pdf.addPage([85.6, 54], "landscape");
+      var c2 = await html2canvas(back, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+      pdf.addImage(c2.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
     }
-  } catch(e) {
-    console.error("PDF error:", e);
-    alert("PDF failed: " + e.message);
-  }
-  btn.textContent = currentDocType === "license" ? "Download License PDF" : "Download Certificate PDF";
-  btn.disabled = false;
+    var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
+    pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
+  } catch(e) { alert("PDF failed: " + e.message); }
+  btn.textContent = "Download License PDF"; btn.disabled = false;
 }
 </script>
 
@@ -670,8 +689,8 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 <!-- MODAL -->
 <div class="cmo" id="CM" onclick="if(event.target===this)closeCertModal()">
   <div class="cmc">
-    <button class="cbtn pr" id="DLBTN" onclick="downloadPDF()">Download PDF</button>
-    <button class="cbtn pr" onclick="window.print()" style="background:var(--navy-light,#1a3360);color:white">Print</button>
+    <button class="cbtn pr" id="DLBTN_CERT" onclick="downloadCertPDF()" style="display:none">Download Certificate PDF</button>
+    <button class="cbtn pr" id="DLBTN_LIC" onclick="downloadLicPDF()" style="display:none">Download License PDF</button>
     <button class="cbtn cl" onclick="closeCertModal()">Close</button>
   </div>
 
