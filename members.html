@@ -44,7 +44,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .member-card:hover::before{opacity:1}
 
 .card-header{padding:1.2rem 1.4rem .8rem;display:flex;justify-content:space-between;align-items:flex-start}
-.card-initials{width:48px;height:48px;border-radius:50%;background:rgba(201,168,76,.1);border:1.5px solid rgba(201,168,76,.35);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:var(--gold);flex-shrink:0}
+.card-initials{width:64px;height:80px;border-radius:4px;background:linear-gradient(135deg,var(--mid),var(--navy));border:1.5px solid rgba(201,168,76,.35);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--gold);flex-shrink:0;overflow:hidden}
 .card-type-badge{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 8px}
 .badge-cert{background:rgba(21,101,192,.2);color:#7eb8f5;border:1px solid rgba(21,101,192,.3)}
 .badge-lic{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
@@ -156,7 +156,8 @@ async function loadFromSupabase() {
           issued: r.issued,
           expires: r.expires,
           country: r.country || '',
-          status: r.status || 'active'
+          status: r.status || 'active',
+          photo: r.photo_url || null
         };
       });
     }
@@ -191,7 +192,9 @@ function renderCard(m) {
   var levelLabel = m.level || "-";
   var verifyUrl = "verify.html?id=" + encodeURIComponent(m.certId);
   return '<div class="member-card" data-type="'+m.type+'" data-level="'+m.level+'" data-name="'+m.name.toLowerCase()+'" data-id="'+m.certId.toLowerCase()+'">' +
-    '<div class="card-header"><div class="card-initials">'+getInitials(m.name)+'</div>'+badge+'</div>' +
+    '<div class="card-header">' +
+      (m.photo ? '<div class="card-initials"><img src="'+m.photo+'" style="width:100%;height:100%;object-fit:cover"></div>' : '<div class="card-initials">'+getInitials(m.name)+'</div>') +
+      badge+'</div>' +
     '<div class="card-body">' +
       '<div class="card-name">'+m.name+'</div>' +
       '<div class="card-level">'+levelLabel+'</div>' +
