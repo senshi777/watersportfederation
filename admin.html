@@ -330,21 +330,42 @@ function closeConfirm() {
 async function executeDelete() {
   var btn = document.getElementById('confirmBtn');
   btn.textContent = 'Deleting...'; btn.disabled = true;
-  try {
-    var res = await getDb().from('members').delete().in('id', pendingDeleteIds);
-    if (res.error) throw res.error;
-    // Remove from local arrays
-    pendingDeleteIds.forEach(function(id) {
-      allMembers = allMembers.filter(function(m) { return m.id !== id; });
-      selectedIds.delete(id);
-    });
-    closeConfirm();
-    filterTable();
-    showToast('Deleted ' + pendingDeleteIds.length + ' record(s)');
-    pendingDeleteIds = [];
-  } catch(e) {
-    alert('Delete failed: ' + e.message);
+  var errors = [];
+  // Delete each record individually using fetch so we see exact errors
+  for (var i = 0; i < pendingDeleteIds.length; i++) {
+    var id = pendingDeleteIds[i];
+    try {
+      var res = await fetch(
+        SUPABASE_URL + '/rest/v1/members?id=eq.' + id,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          }
+        }
+      );
+      if (!res.ok) {
+        var body = await res.text();
+        errors.push('ID ' + id + ': HTTP ' + res.status + ' - ' + body);
+      } else {
+        allMembers = allMembers.filter(function(m) { return m.id !== id; });
+        selectedIds.delete(id);
+      }
+    } catch(e) {
+      errors.push('ID ' + id + ': ' + e.message);
+    }
   }
+  closeConfirm();
+  filterTable();
+  if (errors.length) {
+    alert('Some deletes failed:\n' + errors.join('\n') + '\n\nYou may need to add a DELETE policy in Supabase. Run this SQL:\nCREATE POLICY \"Allow delete\" ON members FOR DELETE TO anon USING (true);');
+  } else {
+    showToast('Deleted ' + pendingDeleteIds.length + ' record(s)');
+  }
+  pendingDeleteIds = [];
   btn.textContent = 'Delete'; btn.disabled = false;
 }
 

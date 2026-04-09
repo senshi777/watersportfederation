@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Certificate Verification - Water Sport Federation</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -259,11 +258,6 @@ var DB = {
   }
 };
 
-function getDb() {
-  try { return window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null; }
-  catch(e) { return null; }
-}
-
 function setMsg(txt) { document.getElementById('statusMsg').textContent = txt; }
 
 function populateLicense(d, id) {
@@ -315,21 +309,28 @@ async function doVerify() {
   document.getElementById('notFoundArea').style.display = 'none';
   setMsg('Checking WSF database...');
 
-  // Hardcoded check
+  // Check hardcoded DB first (always works, no network)
   if (DB[id]) { setMsg(''); populateLicense(DB[id], id); return; }
 
-  // Supabase check
+  // Query Supabase REST API directly with fetch (no JS client needed)
   try {
-    var db = getDb();
-    if (db) {
-      var res = await db.from('members').select('*').eq('cert_id', id).single();
-      if (res.data && !res.error) {
+    var url = SUPABASE_URL + '/rest/v1/members?cert_id=eq.' + encodeURIComponent(id) + '&limit=1';
+    var res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Accept': 'application/json'
+      }
+    });
+    if (res.ok) {
+      var rows = await res.json();
+      if (rows && rows.length > 0) {
         setMsg('');
-        populateLicense(res.data, id);
+        populateLicense(rows[0], id);
         return;
       }
     }
-  } catch(e) { console.warn('Verify error:', e.message); }
+  } catch(e) { console.warn('Verify fetch error:', e.message); }
 
   setMsg('');
   document.getElementById('notFoundArea').style.display = 'block';
