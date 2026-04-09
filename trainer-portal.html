@@ -241,7 +241,7 @@ function showDoc(i) {
 function generateQR(certNo, containerId) {
   var container=document.getElementById(containerId);
   container.innerHTML="";
-  var url="https://watersportfederation.org/index.html?verify="+encodeURIComponent(certNo);
+  var url="https://watersportfederation.org/verify.html?id="+encodeURIComponent(certNo);
   new QRCode(container,{text:url,width:80,height:80,colorDark:"#0d4a8a",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
 }
 
@@ -264,6 +264,7 @@ function showCert(c) {
   generateQR(c.no,"QRCODE");
   document.getElementById("certView").style.display="block";
   document.getElementById("licView").style.display="none";
+  document.getElementById("DLBTN").textContent="Download Certificate PDF";
   document.getElementById("CM").style.display="flex";
   document.body.style.overflow="hidden";
 }
@@ -289,6 +290,7 @@ function showLicense(c) {
   generateQR(c.no,"LQRCODE");
   document.getElementById("licView").style.display="block";
   document.getElementById("certView").style.display="none";
+  document.getElementById("DLBTN").textContent="Download License PDF";
   document.getElementById("CM").style.display="flex";
   document.body.style.overflow="hidden";
 }
@@ -299,47 +301,52 @@ function closeCertModal() {
 }
 
 async function downloadPDF() {
-  var isCert = document.getElementById("certView").style.display !== "none";
-  var docEl = isCert ? document.querySelector(".cert") : document.getElementById("licFront");
-  if (!docEl) { alert("Please generate a document first."); return; }
+  // Determine what is currently showing in the modal
+  var certVisible = document.getElementById("certView").style.display !== "none";
+  var licVisible  = document.getElementById("licView").style.display !== "none";
   var btn = document.getElementById("DLBTN");
   btn.textContent = "Generating...";
   btn.disabled = true;
   try {
-    if (isCert) {
-      // Certificate: A4 portrait
+    if (licVisible) {
+      // ── LICENSE: two-page credit card size (85.6 x 54 mm) ──
+      var front = document.getElementById("licFront");
+      var back  = document.getElementById("licBack");
+      if (!front) { alert("Generate a license first."); btn.textContent="Download PDF"; btn.disabled=false; return; }
+      var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6, 54]});
+      // Page 1 — front
+      var c1 = await html2canvas(front, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+      pdf.addImage(c1.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
+      // Page 2 — back
+      if (back) {
+        pdf.addPage([85.6, 54], "landscape");
+        var c2 = await html2canvas(back, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
+        pdf.addImage(c2.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
+      }
+      var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
+      pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
+
+    } else if (certVisible) {
+      // ── CERTIFICATE: A4 portrait ──
+      var docEl = document.querySelector(".cert");
+      if (!docEl) { alert("Generate a certificate first."); btn.textContent="Download PDF"; btn.disabled=false; return; }
       var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
       var pdfW = pdf.internal.pageSize.getWidth();
       var pdfH = pdf.internal.pageSize.getHeight();
       var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
       var img = canvas.toDataURL("image/jpeg", 0.95);
-      var ratio = Math.min(pdfW / (canvas.width/3.7795), pdfH / (canvas.height/3.7795));
+      var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
       var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
       pdf.addImage(img, "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
+      var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
+      pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
+
     } else {
-      // License card: credit card size 85.6 x 54mm, landscape, 2 pages
-      var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6, 54]});
-      var pdfW = 85.6, pdfH = 54;
-      var front = document.getElementById("licFront");
-      var back = document.getElementById("licBack");
-      // Front
-      var c1 = await html2canvas(front, {scale:3, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540});
-      var i1 = c1.toDataURL("image/jpeg", 0.97);
-      pdf.addImage(i1, "JPEG", 0, 0, pdfW, pdfH);
-      // Back
-      if (back) {
-        pdf.addPage([85.6, 54], "landscape");
-        var c2 = await html2canvas(back, {scale:3, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540});
-        var i2 = c2.toDataURL("image/jpeg", 0.97);
-        pdf.addImage(i2, "JPEG", 0, 0, pdfW, pdfH);
-      }
+      alert("Please view a document first, then click Download PDF.");
     }
-    var nameEl = document.getElementById(isCert ? "CNME" : "LNAME");
-    var docName = nameEl ? nameEl.textContent.trim() : "WSF";
-    pdf.save("WSF-" + docName.replace(/\s+/g,"-") + ".pdf");
   } catch(e) {
     console.error("PDF error:", e);
-    alert("PDF failed: " + e.message);
+    alert("PDF generation failed: " + e.message);
   }
   btn.textContent = "Download PDF";
   btn.disabled = false;

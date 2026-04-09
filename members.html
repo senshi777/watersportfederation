@@ -189,7 +189,7 @@ function renderCard(m) {
     ? '<span class="card-type-badge badge-lic">License</span>'
     : '<span class="card-type-badge badge-cert">Certificate</span>';
   var levelLabel = m.level || "-";
-  var verifyUrl = "index.html?verify=" + encodeURIComponent(m.certId);
+  var verifyUrl = "verify.html?id=" + encodeURIComponent(m.certId);
   return '<div class="member-card" data-type="'+m.type+'" data-level="'+m.level+'" data-name="'+m.name.toLowerCase()+'" data-id="'+m.certId.toLowerCase()+'">' +
     '<div class="card-header"><div class="card-initials">'+getInitials(m.name)+'</div>'+badge+'</div>' +
     '<div class="card-body">' +
