@@ -312,8 +312,12 @@ function showLicense(c) {
   else{trImg.style.display="none";if(trPh)trPh.style.display="block";}
   generateQR(c.no,"LQRCODE");
   currentDocType="license";
-  document.getElementById("licView").style.display="block";
-  document.getElementById("certView").style.display="none";
+  document.getElementById("licView").style.visibility="";
+  document.getElementById("licView").style.position="";
+  document.getElementById("licView").style.left="";
+  document.getElementById("certView").style.visibility="hidden";
+  document.getElementById("certView").style.position="absolute";
+  document.getElementById("certView").style.left="-9999px";
   document.getElementById("DLBTN_LIC").style.display="block";
   document.getElementById("DLBTN_CERT").style.display="none";
   document.getElementById("CM").style.display="flex";
@@ -329,45 +333,28 @@ async function downloadCertPDF() {
   var btn = document.getElementById("DLBTN_CERT");
   btn.textContent = "Generating..."; btn.disabled = true;
   try {
-    var original = document.querySelector(".cert");
-    if (!original) throw new Error("Certificate not found.");
-
-    // Clone the cert element into a visible off-screen container
-    // This fixes the blank screen on mobile caused by hidden parent elements
-    var container = document.createElement("div");
-    container.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#0a1628;z-index:-1;";
-    var clone = original.cloneNode(true);
-    clone.style.cssText = "width:794px;min-height:1020px;position:relative;overflow:hidden;";
-    container.appendChild(clone);
-    document.body.appendChild(container);
-
-    // Wait for fonts and layout
-    await new Promise(function(r){ setTimeout(r, 500); });
-
-    var canvas = await html2canvas(clone, {
+    var docEl = document.querySelector(".cert");
+    if (!docEl) throw new Error("Certificate not found.");
+    await new Promise(function(r){ setTimeout(r, 400); });
+    var canvas = await html2canvas(docEl, {
       scale: 1.5,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#0a1628",
       logging: false,
       width: 794,
-      height: clone.scrollHeight || 1020,
+      height: docEl.scrollHeight || 1020,
       windowWidth: 794
     });
-
-    document.body.removeChild(container);
-
-    if (!canvas.width || !canvas.height) throw new Error("Canvas is empty. Please try again.");
-
-    var pdf = new jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    if (!canvas.width || !canvas.height) throw new Error("Canvas empty - please try again.");
+    var pdf = new jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
-    var ratio = Math.min(pdfW / (canvas.width / 3.7795), pdfH / (canvas.height / 3.7795));
-    var w = (canvas.width / 3.7795) * ratio;
-    var h = (canvas.height / 3.7795) * ratio;
-    pdf.addImage(canvas.toDataURL("image/jpeg", 0.93), "JPEG", (pdfW - w) / 2, (pdfH - h) / 2, w, h);
-    var name = (document.getElementById("CNME") || {textContent:"Certificate"}).textContent.trim();
-    pdf.save("WSF-Certificate-" + name.replace(/\s+/g, "-") + ".pdf");
+    var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
+    var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
+    pdf.addImage(canvas.toDataURL("image/jpeg",0.93), "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
+    var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
+    pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
   } catch(e) {
     console.error("PDF error:", e);
     alert("PDF failed: " + e.message);
@@ -483,7 +470,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .vcbtn:hover{background:var(--gold2)}
 .empty{text-align:center;padding:2.5rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;border:1px dashed rgba(201,168,76,.12)}
 /* MODAL */
-.cmo{position:fixed;inset:0;z-index:200;background:rgba(5,13,26,.96);display:none;align-items:flex-start;justify-content:center;padding:2rem 1rem 5rem;overflow-y:auto}
+.cmo{position:fixed;inset:0;z-index:200;background:rgba(5,13,26,.96);display:none;align-items:flex-start;justify-content:center;padding:2rem 1rem 5rem;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .cmo.open{display:flex}
 .cmc{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:300;display:flex;gap:.8rem;background:rgba(10,22,40,.95);padding:.7rem 1.2rem;border:1px solid rgba(201,168,76,.3);border-radius:3px}
 .cbtn{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:.55rem 1.3rem;cursor:pointer;border:none;transition:all .3s}
@@ -502,8 +489,8 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .cert-corner.tr{top:6px;right:6px;border-top:3px solid var(--gold);border-right:3px solid var(--gold)}
 .cert-corner.bl{bottom:6px;left:6px;border-bottom:3px solid var(--gold);border-left:3px solid var(--gold)}
 .cert-corner.br{bottom:6px;right:6px;border-bottom:3px solid var(--gold);border-right:3px solid var(--gold)}
-.cwt{position:absolute;top:0;left:0;right:0;height:160px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.6) 50%,rgba(13,140,202,.3) 100%);clip-path:ellipse(110% 100% at 50% 0);z-index:1}
-.cwb{position:absolute;bottom:0;left:0;right:0;height:110px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.5) 100%);clip-path:ellipse(110% 100% at 50% 100%);z-index:1}
+.cwt{position:absolute;top:0;left:0;right:0;height:160px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.6) 50%,rgba(13,140,202,.3) 100%);z-index:1;border-radius:0 0 60% 60%}
+.cwb{position:absolute;bottom:0;left:0;right:0;height:110px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.5) 100%);z-index:1;border-radius:60% 60% 0 0}
 .cwt2{position:absolute;top:80px;left:-50px;right:-50px;height:120px;border-bottom:1px solid rgba(201,168,76,.15);border-radius:0 0 50% 50%;z-index:2;pointer-events:none}
 .cwb2{position:absolute;bottom:25px;left:-50px;right:-50px;height:90px;border-top:1px solid rgba(201,168,76,.15);border-radius:50% 50% 0 0;z-index:2;pointer-events:none}
 .cwm{position:absolute;top:50%;left:-15%;width:130%;transform:translateY(-50%) rotate(-30deg);font-family:'Barlow Condensed',sans-serif;font-size:4rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:2.5}
@@ -752,7 +739,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
   </div>
 
   <!-- CERTIFICATE VIEW -->
-  <div id="certView" style="display:none">
+  <div id="certView" style="visibility:hidden;position:absolute;left:-9999px;top:0">
   <div class="cert">
     <div class="cert-border-outer"></div>
     <div class="cert-border-inner"></div>
