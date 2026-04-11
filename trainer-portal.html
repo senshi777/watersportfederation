@@ -1,429 +1,346 @@
-<!-- WSF Trainer Portal v2026-04-09 20:31:58 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <title>Trainer Portal - Water Sport Federation</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script>
-var SUPA_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
-var SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
-var supaClient = null;
-function getSupabase() {
-  if (!supaClient && window.supabase) {
-    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-  }
-  return supaClient;
-}
-
-function compressPhoto(dataUrl, maxW, maxH, quality) {
-  return new Promise(function(resolve) {
-    if (!dataUrl) { resolve(null); return; }
-    var img = new Image();
-    img.onload = function() {
-      var canvas = document.createElement('canvas');
-      var ratio = Math.min(maxW/img.width, maxH/img.height, 1);
-      canvas.width = Math.round(img.width * ratio);
-      canvas.height = Math.round(img.height * ratio);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', quality || 0.7));
-    };
-    img.onerror = function() { resolve(null); };
-    img.src = dataUrl;
-  });
-}
-
-async function saveToSupabase(data) {
-  var db = getSupabase();
-  if (!db) { console.warn('Supabase not loaded'); return; }
-  // Compress photo to 120x160px thumbnail before saving
-  var photoThumb = await compressPhoto(data.photo, 120, 160, 0.7);
-  var record = {
-    type: data.type,
-    name: data.name,
-    level: data.level || data.specialty || null,
-    cert_id: data.no,
-    issued: data.date,
-    expires: data.exp,
-    country: data.country || null,
-    nationality: data.nationality || null,
-    dob: data.dob || null,
-    trainer_name: data.trainerName || null,
-    trainer_no: currentTrainer ? currentTrainer.no : null,
-    status: 'active',
-    photo_url: photoThumb || null
-  };
-  var result = await db.from('members').upsert(record, {onConflict: 'cert_id'});
-  if (result.error) {
-    console.warn('Supabase save error:', result.error.message);
-  } else {
-    console.log('Saved to Supabase:', data.no);
-  }
-}
-</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-var TRAINERS = {
-  "bilal.jafar": { password: "WSF2026", name: "Bilal Jafar", no: "WSF-MIT-2026-001", stars: 5 }
-};
-var currentTrainer = null;
-var currentDocType = "cert"; // "cert" or "license"
-var certs = [];
-var currentPhoto = null;
-var trainerPhoto = null;
+/* ── GLOBALS ── */
+var SUPA_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
+var SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
+var TRAINERS = {"bilal.jafar":{password:"WSF2026",name:"Bilal Jafar",no:"WSF-MIT-2026-001",stars:5}};
+var currentTrainer = null, currentDocType = "cert";
+var certs = [], currentPhoto = null, currentLicensePhoto = null, trainerPhoto = null;
 
-function genID() {
-  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  var base = Math.floor(Math.random() * 400) + 523;
-  var suffix = '';
-  for(var i=0;i<4;i++) suffix += chars[Math.floor(Math.random()*chars.length)];
-  return 'WSF-2026-' + base + suffix;
+function getDb(){
+  try{ return window.supabase ? window.supabase.createClient(SUPA_URL,SUPA_KEY) : null; }
+  catch(e){ return null; }
 }
 
-function doLogin() {
-  var u = document.getElementById("LU").value.trim().toLowerCase();
-  var p = document.getElementById("LP").value;
-  var t = TRAINERS[u];
-  if (t && t.password === p) {
-    currentTrainer = t;
-    document.getElementById("LE").style.display = "none";
-    document.getElementById("LS").style.display = "none";
-    document.getElementById("PS").style.display = "block";
-    document.getElementById("WN").textContent = t.name;
-    var ps = ""; for(var i=0;i<(t.stars||0);i++) ps += "\u2605";
-    document.getElementById("PORTALSTARS").innerHTML = ps;
-    var now = new Date();
-    var dd = String(now.getDate()).padStart(2,"0");
-    var mm = String(now.getMonth()+1).padStart(2,"0");
-    var dateStr = dd+"/"+mm+"/"+now.getFullYear();
-    document.getElementById("FD").value = dateStr;
-    document.getElementById("LD").value = dateStr;
-    document.getElementById("FC").value = genID();
-    document.getElementById("LC").value = genID();
+function genID(){
+  var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var base=Math.floor(Math.random()*400)+523;
+  var s=''; for(var i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return 'WSF-2026-'+base+s;
+}
+
+function compressPhoto(dataUrl,maxW,maxH,q){
+  return new Promise(function(res){
+    if(!dataUrl){res(null);return;}
+    var img=new Image();
+    img.onload=function(){
+      var cv=document.createElement('canvas');
+      var r=Math.min(maxW/img.width,maxH/img.height,1);
+      cv.width=Math.round(img.width*r); cv.height=Math.round(img.height*r);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg',q||0.7));
+    };
+    img.onerror=function(){res(null);};
+    img.src=dataUrl;
+  });
+}
+
+async function saveToSupabase(data){
+  var db=getDb(); if(!db) return;
+  var photo=await compressPhoto(data.photo,120,160,0.7);
+  var record={
+    type:data.type, name:data.name,
+    level:data.level||data.specialty||null,
+    cert_id:data.no, issued:data.date, expires:data.exp,
+    country:data.country||null, nationality:data.nationality||null,
+    dob:data.dob||null, trainer_name:data.trainerName||null,
+    trainer_no:currentTrainer?currentTrainer.no:null,
+    status:'active', photo_url:photo||null
+  };
+  var r=await db.from('members').upsert(record,{onConflict:'cert_id'});
+  if(r.error) console.warn('Supabase error:',r.error.message);
+  else console.log('Saved:',data.no);
+}
+
+function doLogin(){
+  var u=document.getElementById('LU').value.trim().toLowerCase();
+  var p=document.getElementById('LP').value;
+  var t=TRAINERS[u];
+  if(t&&t.password===p){
+    currentTrainer=t;
+    document.getElementById('LS').style.display='none';
+    document.getElementById('PS').style.display='block';
+    document.getElementById('WN').textContent=t.name;
+    var s=''; for(var i=0;i<(t.stars||0);i++) s+='\u2605';
+    document.getElementById('PORTALSTARS').innerHTML=s;
+    var now=new Date();
+    var dd=String(now.getDate()).padStart(2,'0');
+    var mm=String(now.getMonth()+1).padStart(2,'0');
+    var ds=dd+'/'+mm+'/'+now.getFullYear();
+    document.getElementById('FD').value=ds;
+    document.getElementById('LD').value=ds;
+    document.getElementById('FC').value=genID();
+    document.getElementById('LC').value=genID();
     loadTrainerPhoto();
   } else {
-    document.getElementById("LE").style.display = "block";
-    document.getElementById("LP").value = "";
+    document.getElementById('LE').style.display='block';
+    document.getElementById('LP').value='';
   }
 }
 
-function doLogout() {
-  currentTrainer = null; certs = []; currentPhoto = null; trainerPhoto = null;
-  document.getElementById("PS").style.display = "none";
-  document.getElementById("LS").style.display = "flex";
-  document.getElementById("LU").value = "";
-  document.getElementById("LP").value = "";
-  document.getElementById("IL").innerHTML = "<div class='empty'>No documents issued yet this session</div>";
+function doLogout(){
+  currentTrainer=null; certs=[]; currentPhoto=null; trainerPhoto=null;
+  document.getElementById('PS').style.display='none';
+  document.getElementById('LS').style.display='flex';
+  document.getElementById('LU').value=''; document.getElementById('LP').value='';
+  document.getElementById('IL').innerHTML="<div class='empty'>No documents issued yet</div>";
 }
 
-function handleTrainerPhoto(inp) {
-  var f = inp.files[0]; if(!f) return;
-  var r = new FileReader();
-  r.onload = function(e) {
-    trainerPhoto = e.target.result;
-    if(currentTrainer) currentTrainer.photo = e.target.result;
-    try { localStorage.setItem("wsf_photo_"+currentTrainer.no, e.target.result); } catch(ex){}
-    applyTrainerPhoto(e.target.result);
+function handleTrainerPhoto(inp){
+  var f=inp.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(e){
+    trainerPhoto=e.target.result;
+    if(currentTrainer) currentTrainer.photo=e.target.result;
+    try{localStorage.setItem('wsf_photo_'+currentTrainer.no,e.target.result);}catch(ex){}
+    var img=document.getElementById('TPTHUMBIMG');
+    if(img){img.src=e.target.result;img.style.display='block';}
+    document.getElementById('TPIC').style.display='none';
+    var fn=document.getElementById('TPFN');
+    if(fn){fn.textContent='Photo saved';fn.style.display='block';}
   };
   r.readAsDataURL(f);
 }
 
-function applyTrainerPhoto(src) {
-  trainerPhoto = src;
-  var img = document.getElementById("TPTHUMBIMG");
-  if(img){ img.src=src; img.style.display="block"; }
-  document.getElementById("TPIC").style.display="none";
-  var fn=document.getElementById("TPFN");
-  if(fn){ fn.textContent="Photo saved"; fn.style.display="block"; }
-}
-
-function loadTrainerPhoto() {
+function loadTrainerPhoto(){
   if(!currentTrainer) return;
-  try {
-    var saved = localStorage.getItem("wsf_photo_"+currentTrainer.no);
-    if(saved){ applyTrainerPhoto(saved); currentTrainer.photo=saved; }
-  } catch(ex){}
+  try{
+    var s=localStorage.getItem('wsf_photo_'+currentTrainer.no);
+    if(s){
+      trainerPhoto=s; currentTrainer.photo=s;
+      var img=document.getElementById('TPTHUMBIMG');
+      if(img){img.src=s;img.style.display='block';}
+      document.getElementById('TPIC').style.display='none';
+    }
+  }catch(ex){}
 }
 
-function pickPhoto() { document.getElementById("PFI").click(); }
-function pickLicensePhoto() { document.getElementById("LPFI").click(); }
+function pickPhoto(){document.getElementById('PFI').click();}
+function pickLicensePhoto(){document.getElementById('LPFI').click();}
 
-function handlePhoto(inp) {
+function handlePhoto(inp){
   var f=inp.files[0]; if(!f) return;
   var r=new FileReader();
   r.onload=function(e){
     currentPhoto=e.target.result;
-    var img=document.getElementById("PTI"); img.src=currentPhoto; img.style.display="block";
-    document.getElementById("PIC").style.display="none";
-    var fn=document.getElementById("PFN"); fn.textContent="Uploaded: "+f.name; fn.style.display="block";
+    var img=document.getElementById('PTI'); img.src=e.target.result; img.style.display='block';
+    document.getElementById('PIC').style.display='none';
+    document.getElementById('PFN').textContent='Uploaded: '+f.name;
+    document.getElementById('PFN').style.display='block';
   };
   r.readAsDataURL(f);
 }
 
-var currentLicensePhoto = null;
-function handleLicensePhoto(inp) {
+function handleLicensePhoto(inp){
   var f=inp.files[0]; if(!f) return;
   var r=new FileReader();
   r.onload=function(e){
     currentLicensePhoto=e.target.result;
-    var img=document.getElementById("LPTI"); img.src=currentLicensePhoto; img.style.display="block";
-    document.getElementById("LPIC").style.display="none";
-    var fn=document.getElementById("LPFN"); fn.textContent="Uploaded: "+f.name; fn.style.display="block";
+    var img=document.getElementById('LPTI'); img.src=e.target.result; img.style.display='block';
+    document.getElementById('LPIC').style.display='none';
+    document.getElementById('LPFN').textContent='Uploaded: '+f.name;
+    document.getElementById('LPFN').style.display='block';
   };
   r.readAsDataURL(f);
 }
 
-function switchTab(tab) {
-  document.getElementById("tabCert").classList.toggle("tab-active", tab==="cert");
-  document.getElementById("tabLic").classList.toggle("tab-active", tab==="lic");
-  document.getElementById("certForm").style.display = tab==="cert"?"block":"none";
-  document.getElementById("licForm").style.display = tab==="lic"?"block":"none";
+function switchTab(tab){
+  document.getElementById('tabCert').classList.toggle('tab-active',tab==='cert');
+  document.getElementById('tabLic').classList.toggle('tab-active',tab==='lic');
+  document.getElementById('certForm').style.display=tab==='cert'?'block':'none';
+  document.getElementById('licForm').style.display=tab==='lic'?'block':'none';
 }
 
-function generateCert() {
-  var fn=document.getElementById("FF").value.trim();
-  var ln=document.getElementById("FL").value.trim();
-  var lv=document.getElementById("FV").value;
-  var dt=document.getElementById("FD").value.trim();
-  var cn=document.getElementById("FC").value.trim();
-  if(!fn||!ln||!lv||!dt||!cn){alert("Please fill all required fields (*)");return;}
-  var name=fn+" "+ln;
-  var parts=dt.split("/");
-  var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
-  var certData = {type:"cert",name:name,level:lv,no:cn,date:dt,exp:exp,photo:currentPhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0};
-  certs.unshift(certData);
-  refreshList();
-  showDoc(0);
-  saveToSupabase(certData);
-  clearCertForm();
-}
-
-function generateLicense() {
-  var fn=document.getElementById("LFN").value.trim();
-  var ln=document.getElementById("LLN").value.trim();
-  var sp=document.getElementById("LSP").value;
-  var dt=document.getElementById("LD").value.trim();
-  var cn=document.getElementById("LC").value.trim();
-  var dob=document.getElementById("LDOB").value.trim();
-  var nat=document.getElementById("LNAT").value.trim();
-  if(!fn||!ln||!sp||!dt||!cn){alert("Please fill all required fields (*)");return;}
-  var name=fn+" "+ln;
-  var parts=dt.split("/");
-  var exp=parts.length===3?parts[0]+"/"+parts[1]+"/"+(parseInt(parts[2])+1):"";
-  var licData = {type:"license",name:name,specialty:sp,no:cn,date:dt,exp:exp,dob:dob,nationality:nat,photo:currentLicensePhoto,trainerName:currentTrainer?currentTrainer.name:"-",trainerStars:currentTrainer?currentTrainer.stars:0};
-  certs.unshift(licData);
-  refreshList();
-  showDoc(0);
-  saveToSupabase(licData);
-  clearLicenseForm();
-}
-
-function clearCertForm() {
-  ["FF","FL","FC"].forEach(function(id){document.getElementById(id).value="";});
-  document.getElementById("FC").value=genID();
+function generateCert(){
+  var fn=document.getElementById('FF').value.trim();
+  var ln=document.getElementById('FL').value.trim();
+  var lv=document.getElementById('FV').value;
+  var dt=document.getElementById('FD').value.trim();
+  var cn=document.getElementById('FC').value.trim();
+  if(!fn||!ln||!lv||!dt||!cn){alert('Please fill all required fields');return;}
+  var parts=dt.split('/');
+  var exp=parts.length===3?parts[0]+'/'+parts[1]+'/'+(parseInt(parts[2])+1):'';
+  var d={type:'cert',name:fn+' '+ln,level:lv,no:cn,date:dt,exp:exp,photo:currentPhoto,
+    trainerName:currentTrainer?currentTrainer.name:'-',trainerStars:currentTrainer?currentTrainer.stars:0};
+  certs.unshift(d); refreshList(); showCert(d); saveToSupabase(d);
+  document.getElementById('FF').value=''; document.getElementById('FL').value='';
+  document.getElementById('FC').value=genID();
   currentPhoto=null;
-  document.getElementById("PTI").style.display="none";
-  document.getElementById("PIC").style.display="block";
-  document.getElementById("PFN").style.display="none";
-  document.getElementById("PFI").value="";
+  document.getElementById('PTI').style.display='none';
+  document.getElementById('PIC').style.display='block';
+  document.getElementById('PFN').style.display='none';
 }
 
-function clearLicenseForm() {
-  ["LFN","LLN","LDOB","LNAT","LC"].forEach(function(id){document.getElementById(id).value="";});
-  document.getElementById("LC").value=genID();
+function generateLicense(){
+  var fn=document.getElementById('LFN').value.trim();
+  var ln=document.getElementById('LLN').value.trim();
+  var sp=document.getElementById('LSP').value;
+  var dt=document.getElementById('LD').value.trim();
+  var cn=document.getElementById('LC').value.trim();
+  var dob=document.getElementById('LDOB').value.trim();
+  var nat=document.getElementById('LNAT').value.trim();
+  if(!fn||!ln||!sp||!dt||!cn){alert('Please fill all required fields');return;}
+  var parts=dt.split('/');
+  var exp=parts.length===3?parts[0]+'/'+parts[1]+'/'+(parseInt(parts[2])+1):'';
+  var d={type:'license',name:fn+' '+ln,specialty:sp,no:cn,date:dt,exp:exp,dob:dob,nationality:nat,
+    photo:currentLicensePhoto,trainerName:currentTrainer?currentTrainer.name:'-',
+    trainerStars:currentTrainer?currentTrainer.stars:0};
+  certs.unshift(d); refreshList(); showLicense(d); saveToSupabase(d);
+  document.getElementById('LFN').value=''; document.getElementById('LLN').value='';
+  document.getElementById('LC').value=genID();
   currentLicensePhoto=null;
-  document.getElementById("LPTI").style.display="none";
-  document.getElementById("LPIC").style.display="block";
-  document.getElementById("LPFN").style.display="none";
-  document.getElementById("LPFI").value="";
+  document.getElementById('LPTI').style.display='none';
+  document.getElementById('LPIC').style.display='block';
+  document.getElementById('LPFN').style.display='none';
 }
 
-function refreshList() {
-  if(!certs.length){document.getElementById("IL").innerHTML="<div class='empty'>No documents issued yet this session</div>";return;}
-  var html="";
-  certs.forEach(function(c,i){
-    var badge=c.type==="license"?"LICENSE":"CERT";
-    var badgeColor=c.type==="license"?"#c9a84c":"#1565c0";
-    html+="<div class='irow'><div><div class='iname'>"+c.name+"<span style='margin-left:8px;font-size:.6rem;background:"+badgeColor+";color:white;padding:2px 6px;border-radius:2px;vertical-align:middle;'>"+badge+"</span></div><div class='imeta'><span>"+(c.level||c.specialty)+"</span>"+c.no+" &middot; "+c.date+"</div></div><button class='vcbtn' onclick='showDoc("+i+")'>View</button></div>";
-  });
-  document.getElementById("IL").innerHTML=html;
+function refreshList(){
+  if(!certs.length){document.getElementById('IL').innerHTML="<div class='empty'>No documents issued yet</div>";return;}
+  document.getElementById('IL').innerHTML=certs.map(function(c,i){
+    var badge=c.type==='license'?'<span style="margin-left:6px;font-size:.58rem;background:#c9a84c;color:#0a1628;padding:2px 6px;border-radius:2px;vertical-align:middle">LICENSE</span>':'<span style="margin-left:6px;font-size:.58rem;background:#1565c0;color:white;padding:2px 6px;border-radius:2px;vertical-align:middle">CERT</span>';
+    return '<div class="irow"><div><div class="iname">'+c.name+badge+'</div><div class="imeta"><span>'+(c.level||c.specialty)+'</span>'+c.no+' &middot; '+c.date+'</div></div><button class="vcbtn" onclick="showDoc('+i+')">View</button></div>';
+  }).join('');
 }
 
-function showDoc(i) {
-  var c=certs[i]; if(!c) return;
-  if(c.type==="license") showLicense(c);
-  else showCert(c);
-}
+function showDoc(i){var c=certs[i];if(!c)return;c.type==='license'?showLicense(c):showCert(c);}
 
-function generateQR(certNo, containerId) {
+function generateQR(certNo,containerId){
   var container=document.getElementById(containerId);
-  container.innerHTML="";
-  var url="https://watersportfederation.org/verify.html?id="+encodeURIComponent(certNo);
-  new QRCode(container,{text:url,width:80,height:80,colorDark:"#0d4a8a",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  container.innerHTML='';
+  new QRCode(container,{
+    text:'https://watersportfederation.org/verify.html?id='+encodeURIComponent(certNo),
+    width:80,height:80,colorDark:'#0d4a8a',colorLight:'#ffffff',
+    correctLevel:QRCode.CorrectLevel.M
+  });
 }
 
-function showCert(c) {
-  document.getElementById("CNME").textContent = c.name;
-  document.getElementById("CLVL").textContent = c.level;
-  document.getElementById("CNO").textContent  = c.no;
-  document.getElementById("CDT").textContent  = c.date;
-  document.getElementById("CEXP").textContent = c.exp || "";
-  document.getElementById("CTRNAME").textContent = c.trainerName || "-";
-  var sh = ""; for(var s=0;s<5;s++) sh += s<(c.trainerStars||0)?"★":"☆";
-  document.getElementById("CTRSTARS").innerHTML = sh;
-  var img = document.getElementById("CPI"), box = document.getElementById("CPBBOX");
-  if (c.photo) { img.src = c.photo; if(box) box.style.display = "block"; }
-  else { if(box) box.style.display = "none"; }
-  var trImg = document.getElementById("TRPHOTOIMG"), trPh = document.getElementById("TRPHOTOPH");
-  if (trainerPhoto) { trImg.src = trainerPhoto; trImg.style.display = "block"; if(trPh) trPh.style.display = "none"; }
-  else { trImg.style.display = "none"; if(trPh) trPh.style.display = "flex"; }
-  generateQR(c.no, "QRCODE");
-  currentDocType = "cert";
-  document.getElementById("certView").style.display = "block";
-  document.getElementById("licView").style.display  = "none";
-  document.getElementById("DLBTN_CERT").style.display = "block";
-  document.getElementById("DLBTN_LIC").style.display  = "none";
-  document.getElementById("CM").style.display = "flex";
-  // Force iOS repaint
-  document.getElementById("CM").style.webkitTransform = "translateZ(0)";
-  document.body.style.overflow = "hidden";
+function showCert(c){
+  document.getElementById('CNME').textContent=c.name;
+  document.getElementById('CLVL').textContent=c.level;
+  document.getElementById('CNO').textContent=c.no;
+  document.getElementById('CDT').textContent=c.date;
+  document.getElementById('CEXP').textContent=c.exp||'';
+  document.getElementById('CTRNAME').textContent=c.trainerName||'-';
+  var sh=''; for(var s=0;s<5;s++) sh+=s<(c.trainerStars||0)?'\u2605':'\u2606';
+  document.getElementById('CTRSTARS').innerHTML=sh;
+  var img=document.getElementById('CPI'),box=document.getElementById('CPBBOX');
+  if(c.photo){img.src=c.photo;if(box)box.style.display='block';}
+  else{if(box)box.style.display='none';}
+  var trImg=document.getElementById('TRPHOTOIMG'),trPh=document.getElementById('TRPHOTOPH');
+  if(trainerPhoto){trImg.src=trainerPhoto;trImg.style.display='block';if(trPh)trPh.style.display='none';}
+  else{trImg.style.display='none';if(trPh)trPh.style.display='flex';}
+  generateQR(c.no,'QRCODE');
+  currentDocType='cert';
+  document.getElementById('certView').style.display='block';
+  document.getElementById('licView').style.display='none';
+  document.getElementById('DLBTN_CERT').style.display='block';
+  document.getElementById('DLBTN_LIC').style.display='none';
+  var cm=document.getElementById('CM');
+  cm.style.display='flex';
+  document.body.style.overflow='hidden';
+  /* Force iOS repaint */
+  requestAnimationFrame(function(){requestAnimationFrame(function(){cm.scrollTop=1;cm.scrollTop=0;});});
 }
 
-function showLicense(c) {
-  document.getElementById("LNAME").textContent=c.name;
-  document.getElementById("LSPEC").textContent=c.specialty;
-  document.getElementById("LNO").textContent=c.no;
-  document.getElementById("LDATE").textContent=c.date;
-  document.getElementById("LEXP2").textContent=c.exp||"";
-  document.getElementById("LDOB2").textContent=c.dob||"";
-  document.getElementById("LNAT2").textContent=c.nationality||"";
-  document.getElementById("LTRNAME").textContent=c.trainerName||"-";
-  var sh=""; for(var s=0;s<5;s++) sh+=s<(c.trainerStars||0)?"\u2605":"\u2606";
-  document.getElementById("LTRSTARS").innerHTML=sh;
-  document.getElementById("LTRNO").textContent=currentTrainer?currentTrainer.no:"-";
-  var img=document.getElementById("LCPI"),ph=document.getElementById("LCPP");
-  if(c.photo){img.src=c.photo;img.style.display="block";ph.style.display="none";}
-  else{img.style.display="none";ph.style.display="flex";}
-  var trImg=document.getElementById("LTRPHOTO"),trPh=document.getElementById("LTRPHOTOPH");
-  if(trainerPhoto){trImg.src=trainerPhoto;trImg.style.display="block";if(trPh)trPh.style.display="none";}
-  else{trImg.style.display="none";if(trPh)trPh.style.display="block";}
-  generateQR(c.no,"LQRCODE");
-  currentDocType="license";
-  document.getElementById("licView").style.display="block";
-  document.getElementById("certView").style.display="none";
-  document.getElementById("DLBTN_LIC").style.display="block";
-  document.getElementById("DLBTN_CERT").style.display="none";
-  document.getElementById("CM").style.display="flex";
-  document.body.style.overflow="hidden";
+function showLicense(c){
+  document.getElementById('LNAME').textContent=c.name;
+  document.getElementById('LSPEC').textContent=c.specialty;
+  document.getElementById('LNO').textContent=c.no;
+  document.getElementById('LDATE').textContent=c.date;
+  document.getElementById('LEXP2').textContent=c.exp||'';
+  document.getElementById('LDOB2').textContent=c.dob||'';
+  document.getElementById('LNAT2').textContent=c.nationality||'';
+  document.getElementById('LTRNAME').textContent=c.trainerName||'-';
+  var sh=''; for(var s=0;s<5;s++) sh+=s<(c.trainerStars||0)?'\u2605':'\u2606';
+  document.getElementById('LTRSTARS').innerHTML=sh;
+  document.getElementById('LTRNO').textContent=currentTrainer?currentTrainer.no:'-';
+  var img=document.getElementById('LCPI'),ph=document.getElementById('LCPP');
+  if(c.photo){img.src=c.photo;img.style.display='block';ph.style.display='none';}
+  else{img.style.display='none';ph.style.display='flex';}
+  var trImg=document.getElementById('LTRPHOTO'),trPh=document.getElementById('LTRPHOTOPH');
+  if(trainerPhoto){trImg.src=trainerPhoto;trImg.style.display='block';if(trPh)trPh.style.display='none';}
+  else{trImg.style.display='none';if(trPh)trPh.style.display='block';}
+  generateQR(c.no,'LQRCODE');
+  currentDocType='license';
+  document.getElementById('licView').style.display='block';
+  document.getElementById('certView').style.display='none';
+  document.getElementById('DLBTN_LIC').style.display='block';
+  document.getElementById('DLBTN_CERT').style.display='none';
+  var cm=document.getElementById('CM');
+  cm.style.display='flex';
+  document.body.style.overflow='hidden';
+  requestAnimationFrame(function(){requestAnimationFrame(function(){cm.scrollTop=1;cm.scrollTop=0;});});
 }
 
-function closeCertModal() {
-  document.getElementById("CM").style.display="none";
-  document.body.style.overflow="";
+function closeCertModal(){
+  document.getElementById('CM').style.display='none';
+  document.body.style.overflow='';
 }
 
-async function downloadCertPDF() {
-  var btn = document.getElementById("DLBTN_CERT");
-  btn.textContent = "Generating..."; btn.disabled = true;
-  try {
-    var original = document.querySelector(".cert");
-    if (!original) throw new Error("Certificate not found.");
-
-    // Create off-screen container with explicit dimensions
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "position:fixed;left:0;top:0;width:794px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;";
-    document.body.appendChild(wrap);
-
-    // Clone certificate into it
-    var clone = original.cloneNode(true);
-    clone.style.cssText = "position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;";
+async function downloadCertPDF(){
+  var btn=document.getElementById('DLBTN_CERT');
+  btn.textContent='Generating...'; btn.disabled=true;
+  try{
+    var original=document.querySelector('.cert');
+    if(!original) throw new Error('Certificate not found');
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:0;top:0;width:794px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;';
+    var clone=original.cloneNode(true);
+    clone.style.cssText='position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;';
     wrap.appendChild(clone);
-
-    // Let browser paint it
-    await new Promise(function(r){ setTimeout(r, 600); });
-
-    var canvas = await html2canvas(clone, {
-      scale: 1.5,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#0a1628",
-      logging: false,
-      width: 794,
-      height: clone.scrollHeight || 1020,
-      windowWidth: 794
-    });
-
+    document.body.appendChild(wrap);
+    await new Promise(function(r){setTimeout(r,600);});
+    var canvas=await html2canvas(clone,{scale:1.5,useCORS:true,allowTaint:true,backgroundColor:'#0a1628',logging:false,width:794,height:clone.scrollHeight||1020,windowWidth:794});
     document.body.removeChild(wrap);
-
-    if (!canvas.width || !canvas.height) throw new Error("Canvas empty - please try again.");
-
-    var pdf = new jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-    var pdfW = pdf.internal.pageSize.getWidth();
-    var pdfH = pdf.internal.pageSize.getHeight();
-    var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
-    var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
-    pdf.addImage(canvas.toDataURL("image/jpeg",0.93), "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
-    var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
-    pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
-  } catch(e) {
-    console.error("PDF error:", e);
-    alert("PDF failed: " + e.message);
-  }
-  btn.textContent = "Download Certificate PDF"; btn.disabled = false;
+    if(!canvas.width||!canvas.height) throw new Error('Canvas empty');
+    var pdf=new jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var pW=pdf.internal.pageSize.getWidth(), pH=pdf.internal.pageSize.getHeight();
+    var ratio=Math.min(pW/(canvas.width/3.7795),pH/(canvas.height/3.7795));
+    var w=(canvas.width/3.7795)*ratio, h=(canvas.height/3.7795)*ratio;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.93),'JPEG',(pW-w)/2,(pH-h)/2,w,h);
+    var name=(document.getElementById('CNME')||{textContent:'Certificate'}).textContent.trim();
+    pdf.save('WSF-Certificate-'+name.replace(/\s+/g,'-')+'.pdf');
+  }catch(e){console.error(e);alert('PDF failed: '+e.message);}
+  btn.textContent='Download Certificate PDF'; btn.disabled=false;
 }
 
-async function downloadLicPDF() {
-  var btn = document.getElementById("DLBTN_LIC");
-  btn.textContent = "Generating..."; btn.disabled = true;
-  try {
-    var frontOrig = document.getElementById("licFront");
-    var backOrig  = document.getElementById("licBack");
-    if (!frontOrig) throw new Error("License not found.");
-
-    // Off-screen visible container
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "position:fixed;left:0;top:0;width:856px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;";
-    document.body.appendChild(wrap);
-
-    var front = frontOrig.cloneNode(true);
-    front.style.cssText = "position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;";
+async function downloadLicPDF(){
+  var btn=document.getElementById('DLBTN_LIC');
+  btn.textContent='Generating...'; btn.disabled=true;
+  try{
+    var fO=document.getElementById('licFront'),bO=document.getElementById('licBack');
+    if(!fO) throw new Error('License not found');
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:0;top:0;width:856px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;';
+    var front=fO.cloneNode(true);
+    front.style.cssText='position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;';
     wrap.appendChild(front);
-
-    var back = backOrig ? backOrig.cloneNode(true) : null;
-    if (back) {
-      back.style.cssText = "position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;margin-top:4px;";
-      wrap.appendChild(back);
-    }
-
-    await new Promise(function(r){ setTimeout(r, 600); });
-
-    var opts = { scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540, windowWidth:856 };
-    var c1 = await html2canvas(front, opts);
-    if (!c1.width || !c1.height) throw new Error("Canvas empty - please try again.");
-
-    var pdf = new jspdf.jsPDF({ orientation:"landscape", unit:"mm", format:[85.6,54] });
-    pdf.addImage(c1.toDataURL("image/jpeg",0.95), "JPEG", 0, 0, 85.6, 54);
-
-    if (back) {
-      pdf.addPage([85.6,54], "landscape");
-      var c2 = await html2canvas(back, opts);
-      pdf.addImage(c2.toDataURL("image/jpeg",0.95), "JPEG", 0, 0, 85.6, 54);
-    }
-
+    var back=bO?bO.cloneNode(true):null;
+    if(back){back.style.cssText='position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;margin-top:4px;';wrap.appendChild(back);}
+    document.body.appendChild(wrap);
+    await new Promise(function(r){setTimeout(r,600);});
+    var opts={scale:2,useCORS:true,allowTaint:true,backgroundColor:'#0a1628',logging:false,width:856,height:540,windowWidth:856};
+    var c1=await html2canvas(front,opts);
+    if(!c1.width||!c1.height) throw new Error('Canvas empty');
+    var pdf=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:[85.6,54]});
+    pdf.addImage(c1.toDataURL('image/jpeg',0.95),'JPEG',0,0,85.6,54);
+    if(back){pdf.addPage([85.6,54],'landscape');var c2=await html2canvas(back,opts);pdf.addImage(c2.toDataURL('image/jpeg',0.95),'JPEG',0,0,85.6,54);}
     document.body.removeChild(wrap);
-
-    var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
-    pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
-  } catch(e) {
-    console.error("PDF error:", e);
-    alert("PDF failed: " + e.message);
-  }
-  btn.textContent = "Download License PDF"; btn.disabled = false;
+    var name=(document.getElementById('LNAME')||{textContent:'License'}).textContent.trim();
+    pdf.save('WSF-License-'+name.replace(/\s+/g,'-')+'.pdf');
+  }catch(e){console.error(e);alert('PDF failed: '+e.message);}
+  btn.textContent='Download License PDF'; btn.disabled=false;
 }
 </script>
 
@@ -454,7 +371,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .pw{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .pw span{color:var(--gold)}
 #PORTALSTARS{color:var(--gold);font-size:.9rem;letter-spacing:.1em}
-.logoutbtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;background:none;border:1px solid rgba(201,168,76,.25);color:var(--muted);padding:.4rem 1rem;cursor:pointer;transition:all .3s}
+.logoutbtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;background:none;border:1px solid rgba(201,168,76,.25);color:var(--muted);padding:.4rem 1rem;cursor:pointer}
 .logoutbtn:hover{border-color:var(--gold);color:var(--gold)}
 .pbody{max-width:900px;margin:0 auto;padding:2.5rem 2rem}
 .stag{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem;display:block}
@@ -462,20 +379,19 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .stitle strong{font-weight:700;color:var(--gold)}
 .divl{width:48px;height:2px;background:var(--gold);margin-bottom:2rem}
 .tabs{display:flex;border-bottom:2px solid rgba(201,168,76,.2);margin-bottom:2rem}
-.tab-btn{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;background:none;border:none;color:var(--muted);padding:.8rem 2rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .3s}
-.tab-btn:hover{color:var(--white)}
+.tab-btn{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;background:none;border:none;color:var(--muted);padding:.8rem 2rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
 .tab-active{color:var(--gold)!important;border-bottom-color:var(--gold)!important}
 .ibox{background:var(--mid);border:1px solid rgba(201,168,76,.2);padding:2rem;margin-bottom:2.5rem}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 .full{grid-column:1/-1}
-.ibtn{margin-top:1.2rem;width:100%;background:var(--gold);color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:.85rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:1rem;border:none;cursor:pointer;transition:background .3s}
+.ibtn{margin-top:1.2rem;width:100%;background:var(--gold);color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:.85rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:1rem;border:none;cursor:pointer}
 .ibtn:hover{background:var(--gold2)}
 .pua{grid-column:1/-1;display:flex;align-items:center;gap:1.2rem;background:var(--navy);border:1px dashed rgba(201,168,76,.25);padding:1rem}
 .pthumb{width:65px;height:82px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:1.6rem;color:rgba(255,255,255,.3)}
 .pthumb img{width:100%;height:100%;object-fit:cover}
 .puinfo p{font-size:.8rem;color:var(--muted);line-height:1.5;margin-bottom:.5rem}
 .puinfo p strong{color:var(--white)}
-.pubtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold);padding:.45rem 1rem;cursor:pointer;transition:all .3s}
+.pubtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold);padding:.45rem 1rem;cursor:pointer}
 .pubtn:hover{background:rgba(201,168,76,.1)}
 .pfn{font-size:.7rem;color:var(--gold);margin-top:.35rem;display:none;font-family:'Barlow Condensed',sans-serif}
 .ilist{display:flex;flex-direction:column;gap:.7rem}
@@ -483,144 +399,63 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .iname{font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:700;color:var(--white)}
 .imeta{font-size:.73rem;color:var(--muted);margin-top:.15rem}
 .imeta span{color:var(--gold);margin-right:.6rem}
-.vcbtn{font-family:'Barlow Condensed',sans-serif;font-size:.67rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:var(--gold);color:var(--navy);border:none;padding:.4rem .9rem;cursor:pointer;flex-shrink:0}
+.vcbtn{font-family:'Barlow Condensed',sans-serif;font-size:.67rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:var(--gold);color:var(--navy);border:none;padding:.4rem .9rem;cursor:pointer}
 .vcbtn:hover{background:var(--gold2)}
 .empty{text-align:center;padding:2.5rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;border:1px dashed rgba(201,168,76,.12)}
 /* MODAL */
 .cmo{position:fixed;inset:0;z-index:200;background:rgba(5,13,26,.96);display:none;align-items:flex-start;justify-content:center;padding:2rem 1rem 5rem;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.cmo.open{display:flex}
 .cmc{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:300;display:flex;gap:.8rem;background:rgba(10,22,40,.95);padding:.7rem 1.2rem;border:1px solid rgba(201,168,76,.3);border-radius:3px}
-.cbtn{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:.55rem 1.3rem;cursor:pointer;border:none;transition:all .3s}
+.cbtn{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:.55rem 1.3rem;cursor:pointer;border:none}
 .cbtn.pr{background:var(--gold);color:var(--navy)}
 .cbtn.pr:hover{background:var(--gold2)}
 .cbtn.cl{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
-.cbtn.cl:hover{background:rgba(255,255,255,.2)}
 .cbtn:disabled{opacity:.5;cursor:not-allowed}
-
-/* ═══ CERTIFICATE DESIGN ═══ */
-.cert{width:794px;min-height:1050px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif}
+/* CERTIFICATE */
+.cert{width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;-webkit-transform:translateZ(0);transform:translateZ(0)}
 .cert-border-outer{position:absolute;inset:8px;border:1px solid rgba(201,168,76,.35);z-index:5;pointer-events:none}
-.cert-border-inner{position:absolute;inset:15px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none}
+.cert-border-inner{position:absolute;inset:15px;border:.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none}
 .cert-corner{position:absolute;width:45px;height:45px;z-index:6;pointer-events:none}
 .cert-corner.tl{top:6px;left:6px;border-top:3px solid var(--gold);border-left:3px solid var(--gold)}
 .cert-corner.tr{top:6px;right:6px;border-top:3px solid var(--gold);border-right:3px solid var(--gold)}
 .cert-corner.bl{bottom:6px;left:6px;border-bottom:3px solid var(--gold);border-left:3px solid var(--gold)}
 .cert-corner.br{bottom:6px;right:6px;border-bottom:3px solid var(--gold);border-right:3px solid var(--gold)}
-.cwt{position:absolute;top:0;left:0;right:0;height:160px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.6) 50%,rgba(13,140,202,.3) 100%);z-index:1;border-radius:0 0 60% 60%}
-.cwb{position:absolute;bottom:0;left:0;right:0;height:110px;background:linear-gradient(135deg,rgba(10,37,88,.9) 0%,rgba(21,101,192,.5) 100%);z-index:1;border-radius:60% 60% 0 0}
-.cwt2{position:absolute;top:80px;left:-50px;right:-50px;height:120px;border-bottom:1px solid rgba(201,168,76,.15);border-radius:0 0 50% 50%;z-index:2;pointer-events:none}
-.cwb2{position:absolute;bottom:25px;left:-50px;right:-50px;height:90px;border-top:1px solid rgba(201,168,76,.15);border-radius:50% 50% 0 0;z-index:2;pointer-events:none}
+.cwt{position:absolute;top:0;left:0;right:0;height:160px;background:linear-gradient(135deg,rgba(10,37,88,.9),rgba(21,101,192,.6),rgba(13,140,202,.3));border-radius:0 0 60% 60%;z-index:1}
+.cwb{position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(135deg,rgba(10,37,88,.9),rgba(21,101,192,.5));border-radius:60% 60% 0 0;z-index:1}
 .cwm{position:absolute;top:50%;left:-15%;width:130%;transform:translateY(-50%) rotate(-30deg);font-family:'Barlow Condensed',sans-serif;font-size:4rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:2.5}
-.ch{position:relative;z-index:10;padding:22px 44px 10px;display:flex;justify-content:flex-start;align-items:flex-start}
-.cla{display:flex;align-items:center;gap:12px}
-.clc{width:70px;height:70px;border-radius:50%;background:rgba(201,168,76,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;color:var(--gold);box-shadow:0 0 20px rgba(201,168,76,.2);flex-shrink:0;letter-spacing:.05em;text-align:center;line-height:1.3}
-.clt{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6}
-.cert-title-area{position:relative;z-index:10;text-align:center;padding:14px 44px 8px}
-.cert-title-main{font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:600;color:#f0d980;line-height:1;margin-bottom:5px;letter-spacing:.04em;text-shadow:0 2px 12px rgba(201,168,76,.3)}
-.cert-title-sub{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:rgba(201,168,76,.7);letter-spacing:.06em}
-.cert-emblem-area{display:flex;justify-content:center;position:relative;z-index:10;padding:10px 0 8px}
-.cert-emblem{width:112px;height:112px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(201,168,76,.25),rgba(201,168,76,.08));border:3px solid var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(201,168,76,.15),0 0 30px rgba(201,168,76,.2),inset 0 0 20px rgba(201,168,76,.05);font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;color:var(--gold);text-align:center;letter-spacing:.06em;position:relative}
-.cert-emblem-stars{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--gold);letter-spacing:.3em;white-space:nowrap;text-shadow:0 0 8px rgba(201,168,76,.5)}
-.cert-emblem-text{font-size:.78rem;font-weight:700;letter-spacing:.1em;color:var(--gold)}
-.cert-emblem-sub{font-size:.46rem;letter-spacing:.18em;color:rgba(201,168,76,.7);margin-top:2px}
-.cert-divider{margin:0 44px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.2),rgba(201,168,76,.6),rgba(201,168,76,.2),transparent);position:relative;z-index:10}
-.cert-recipient{position:relative;z-index:10;text-align:center;padding:18px 60px}
-.cert-presents{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:rgba(201,168,76,.65);margin-bottom:8px;letter-spacing:.06em}
-.cert-name{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)}
-.cert-awarded-text{font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:rgba(201,168,76,.65);margin-bottom:6px}
-.cert-level{font-family:'Cormorant Garamond',serif;font-size:1.75rem;font-weight:700;color:var(--gold);letter-spacing:.03em}
-.cert-level-line{width:80px;height:2px;background:linear-gradient(to right,transparent,var(--gold),transparent);margin:10px auto 0}
-.cert-bottom{position:relative;z-index:10;display:grid;grid-template-columns:130px 1fr 150px;align-items:end;padding:16px 44px 14px;gap:14px}
-.cpb{width:118px;height:150px;background:rgba(201,168,76,.05);border:1.5px solid rgba(201,168,76,.25);overflow:hidden;display:none}
-.cpb img{width:100%;height:100%;object-fit:cover}
-.cpp{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:6px}
-.cert-sig-area{text-align:center}
-.cert-dates{display:flex;gap:20px;justify-content:center;margin-bottom:16px}
-.cert-date-item{text-align:center;padding:6px 12px;border:0.5px solid rgba(201,168,76,.2);background:rgba(201,168,76,.04)}
-.cert-date-label{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55);margin-bottom:3px}
-.cert-date-val{font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0}
-.cert-sig-line{padding-bottom:4px;margin-bottom:6px}
-.cert-sig-name{font-family:'Dancing Script',cursive;font-size:1.6rem;color:var(--gold);font-weight:600}
-.cert-sig-title{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.6)}
-.cert-sig-trname{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;color:#f8f6f0;margin-top:8px}
-.cert-sig-trstars{font-size:.9rem;color:var(--gold);letter-spacing:.1em}
-.cert-sig-trno{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;color:rgba(201,168,76,.45);letter-spacing:.08em}
-.cert-qr-col{display:flex;flex-direction:column;align-items:center;gap:5px}
-.cert-tr-photo{width:82px;height:98px;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.25);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:4px}
-.cert-tr-photo img{width:100%;height:100%;object-fit:cover}
-.cert-tr-photo-ph{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center}
-.cqrb{width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px}
-.cqrb svg,.cqrb img{width:100%;height:100%;display:block}
-.cqrl{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center}
-.cert-footer{position:relative;z-index:10;text-align:center;padding:6px 44px 12px}
-.cert-footer-text{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;letter-spacing:.1em;color:rgba(201,168,76,.4)}
-.cert-wsf-stamp{position:absolute;right:50px;bottom:110px;width:70px;height:70px;border-radius:50%;border:2px solid rgba(201,168,76,.12);display:flex;align-items:center;justify-content:center;z-index:4;transform:rotate(-15deg)}
-.cert-wsf-stamp-inner{font-family:'Barlow Condensed',sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.12);text-align:center;line-height:1.4}
-
-/* GOLDEN BADGE */
-.cert-gold-badge{position:absolute;bottom:90px;left:50px;width:100px;height:100px;z-index:20;pointer-events:none}
-.cert-gold-badge svg{width:100%;height:100%;filter:drop-shadow(0 4px 12px rgba(201,168,76,.5))}
-
-/* ═══ LICENSE DESIGN ═══ */
-.license-doc{width:794px;min-height:500px;background:#fff;position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif}
-.lic-border{position:absolute;inset:6px;border:1.5px solid rgba(13,74,138,.12);z-index:5;pointer-events:none}
+.clc{width:64px;height:64px;border-radius:50%;background:rgba(201,168,76,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:.62rem;font-weight:700;color:var(--gold);flex-shrink:0;letter-spacing:.05em;text-align:center;line-height:1.3}
+.clt{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.9);font-size:.72rem;line-height:1.6}
+.cert-emblem{border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(201,168,76,.22),rgba(201,168,76,.06));border:2.5px solid var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;color:var(--gold);text-align:center;position:relative}
+.cert-emblem-text{font-size:.75rem;font-weight:700;letter-spacing:.1em}
+.cert-emblem-sub{font-size:.44rem;letter-spacing:.18em;opacity:.75;margin-top:2px}
+.cert-footer-text{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.09em;color:rgba(201,168,76,.38);line-height:1.5}
+/* LICENSE */
+.lic-border{position:absolute;inset:6px;border:1.5px solid rgba(201,168,76,.3);z-index:5;pointer-events:none}
 .lic-corner{position:absolute;width:30px;height:30px;z-index:6;pointer-events:none}
 .lic-corner.tl{top:4px;left:4px;border-top:2px solid var(--gold);border-left:2px solid var(--gold)}
 .lic-corner.tr{top:4px;right:4px;border-top:2px solid var(--gold);border-right:2px solid var(--gold)}
 .lic-corner.bl{bottom:4px;left:4px;border-bottom:2px solid var(--gold);border-left:2px solid var(--gold)}
 .lic-corner.br{bottom:4px;right:4px;border-bottom:2px solid var(--gold);border-right:2px solid var(--gold)}
-.lic-left-stripe{position:absolute;left:0;top:0;bottom:0;width:180px;background:linear-gradient(180deg,#0a2558 0%,#1565c0 60%,#0a2558 100%);z-index:2}
-.lic-left-stripe-pattern{position:absolute;left:0;top:0;bottom:0;width:180px;z-index:3;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0px,rgba(255,255,255,.03) 1px,transparent 1px,transparent 8px)}
-.lic-main{position:relative;z-index:10;margin-left:180px;padding:28px 28px 20px 24px}
-.lic-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(13,74,138,.1)}
-.lic-org-name{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:700;color:#0a2558;margin-bottom:2px}
-.lic-title-badge{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:#0a2558;color:var(--gold);padding:3px 10px;display:inline-block}
-.lic-photo{width:90px;height:110px;background:rgba(13,74,138,.05);border:1.5px solid rgba(13,74,138,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
-.lic-photo img{width:100%;height:100%;object-fit:cover}
-.lic-photo-ph{font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.3);text-align:center}
-.lic-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:14px}
-.lic-field{border-bottom:0.5px solid rgba(13,74,138,.1);padding-bottom:6px}
-.lic-field-label{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(13,74,138,.45);margin-bottom:2px}
-.lic-field-val{font-family:'Barlow Condensed',sans-serif;font-size:.85rem;font-weight:600;color:#0a2558}
-.lic-field-val.gold{color:var(--gold);font-size:.95rem}
-.lic-bottom{display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:0.5px solid rgba(13,74,138,.1)}
-.lic-sig-block{}
-.lic-sig-name{font-family:'Dancing Script',cursive;font-size:1.3rem;color:#0a2558;font-weight:600;border-bottom:1px solid rgba(13,74,138,.2);padding-bottom:3px;margin-bottom:3px}
-.lic-sig-title{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#1565c0}
-.lic-qr-area{display:flex;flex-direction:column;align-items:center;gap:3px}
-.lic-qrb{width:70px;height:70px;background:white;border:1px solid rgba(13,74,138,.15);border-radius:2px;padding:3px}
-.lic-qrb svg,.lic-qrb img{width:100%;height:100%;display:block}
-.lic-qrl{font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(13,74,138,.45);text-align:center}
-/* Left stripe content */
-.lic-left-content{position:absolute;left:0;top:0;bottom:0;width:180px;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:20px 12px}
-.lic-left-emblem{width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:.62rem;font-weight:700;color:white;letter-spacing:.05em;text-align:center}
-.lic-left-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(255,255,255,.9);text-align:center;line-height:1.3}
-.lic-left-auth{font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.8);text-align:center}
-.lic-left-stars{font-size:.9rem;color:var(--gold);letter-spacing:.15em;text-align:center}
-.lic-valid-badge{background:rgba(0,200,100,.12);border:1px solid rgba(0,200,100,.3);color:#16a34a;font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 10px;text-align:center}
-.lic-tr-photo-area{display:flex;flex-direction:column;align-items:center;gap:4px}
-.lic-tr-photo{width:55px;height:65px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.lic-tr-photo img{width:100%;height:100%;object-fit:cover}
-.lic-tr-photo-label{font-family:'Barlow Condensed',sans-serif;font-size:.45rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:center}
-
-@media print{body>*:not(#CM){display:none!important}#CM{display:flex!important;position:static;background:#fff;padding:0;overflow:visible}.cmc{display:none!important}}
-@media(max-width:820px){.fgrid{grid-template-columns:1fr}.cert{width:100%}.license-doc{width:100%}}
+@media(max-width:820px){.fgrid{grid-template-columns:1fr}.cert{transform:scale(0.45);transform-origin:top center;margin-bottom:-560px}.license-doc{transform:scale(0.45);transform-origin:top center;margin-bottom:-300px}}
 </style>
+
 </head>
 <body>
 
 <nav>
-  <a href="index.html" class="nb">WSF - watersportfederation.org</a>
-  <div style="display:flex;gap:1.5rem"><a href="admin.html" class="nbk">Admin Panel</a><a href="index.html" class="nbk">Back to Site</a></div>
+  <a href="index.html" class="nb">WSF · watersportfederation.org</a>
+  <div style="display:flex;gap:1.5rem">
+    <a href="admin.html" class="nbk">Admin</a>
+    <a href="index.html" class="nbk">Back to Site</a>
+  </div>
 </nav>
 
-<div id="LS">
+<div id="LS" style="min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;padding:2rem">
   <div class="lbox">
     <div class="lemb">W</div>
     <h1 class="ltitle">Trainer Portal</h1>
     <span class="lsub">Water Sport Federation</span>
-    <div class="fg"><label>Username</label><input type="text" id="LU" placeholder="e.g. bilal.jafar"></div>
-    <div class="fg"><label>Password</label><input type="password" id="LP" placeholder="enter password"></div>
+    <div class="fg"><label>Username</label><input type="text" id="LU" placeholder="e.g. bilal.jafar" autocomplete="username"></div>
+    <div class="fg"><label>Password</label><input type="password" id="LP" placeholder="enter password" autocomplete="current-password"></div>
     <button class="lbtn" onclick="doLogin()">Login to Portal</button>
     <div id="LE" class="lerr">Incorrect username or password.</div>
     <p class="lnote">Restricted to WSF-accredited trainers only.</p>
@@ -633,24 +468,22 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
     <button class="logoutbtn" onclick="doLogout()">Log Out</button>
   </div>
   <div class="pbody">
-
-    <!-- Trainer photo profile box -->
-    <div style="background:var(--mid);border:1px solid rgba(201,168,76,.15);padding:1.2rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:1.5rem;">
-      <div class="pthumb" id="PT"><img id="TPTHUMBIMG" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="TPIC" style="font-size:1.5rem">&#128100;</span></div>
+    <!-- Trainer photo -->
+    <div style="background:var(--mid);border:1px solid rgba(201,168,76,.15);padding:1.2rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:1.5rem">
+      <div class="pthumb" id="PT"><img id="TPTHUMBIMG" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="TPIC">&#128100;</span></div>
       <div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem">Your Profile Photo</div>
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">Saved automatically. Appears above the QR code on every document you issue.</p>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">Appears above QR on every document you issue.</p>
         <button class="pubtn" onclick="document.getElementById('TPFI').click()">Upload My Photo</button>
         <input type="file" id="TPFI" accept="image/*" style="display:none" onchange="handleTrainerPhoto(this)">
-        <div id="TPFN" style="font-size:.7rem;color:var(--gold);margin-top:.3rem;display:none;font-family:'Barlow Condensed',sans-serif;"></div>
+        <div id="TPFN" class="pfn"></div>
       </div>
     </div>
 
     <span class="stag">Issue Documents</span>
-    <h2 class="stitle">Certificate & <strong>License</strong></h2>
+    <h2 class="stitle">Certificate &amp; <strong>License</strong></h2>
     <div class="divl"></div>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn tab-active" id="tabCert" onclick="switchTab('cert')">Certificate of Attendance</button>
       <button class="tab-btn" id="tabLic" onclick="switchTab('lic')">Teaching License</button>
@@ -685,11 +518,11 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
             </select>
           </div>
           <div class="fg"><label>Issue Date *</label><input type="text" id="FD" placeholder="DD/MM/YYYY"></div>
-          <div class="fg"><label>Certificate No. (auto-generated)</label><input type="text" id="FC" placeholder="WSF-2026-..."></div>
+          <div class="fg"><label>Certificate No.</label><input type="text" id="FC" placeholder="WSF-2026-..."></div>
           <div class="fg full pua">
-            <div class="pthumb" id="PT2"><img id="PTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="PIC" style="font-size:1.5rem">&#128444;</span></div>
+            <div class="pthumb"><img id="PTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="PIC">&#128444;</span></div>
             <div class="puinfo">
-              <p><strong>Trainee Photo</strong> (optional) — appears on the certificate.</p>
+              <p><strong>Trainee Photo</strong> (optional)</p>
               <button class="pubtn" onclick="pickPhoto()">Choose Photo</button>
               <input type="file" id="PFI" accept="image/*" style="display:none" onchange="handlePhoto(this)">
               <div class="pfn" id="PFN"></div>
@@ -725,11 +558,11 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
             </select>
           </div>
           <div class="fg"><label>Issue Date *</label><input type="text" id="LD" placeholder="DD/MM/YYYY"></div>
-          <div class="fg"><label>License No. (auto-generated)</label><input type="text" id="LC" placeholder="WSF-2026-..."></div>
+          <div class="fg"><label>License No.</label><input type="text" id="LC" placeholder="WSF-2026-..."></div>
           <div class="fg full pua">
-            <div class="pthumb"><img id="LPTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="LPIC" style="font-size:1.5rem">&#128444;</span></div>
+            <div class="pthumb"><img id="LPTI" alt="" style="display:none;width:100%;height:100%;object-fit:cover"><span id="LPIC">&#128444;</span></div>
             <div class="puinfo">
-              <p><strong>Holder Photo</strong> (optional) — appears on the license.</p>
+              <p><strong>Holder Photo</strong> (optional)</p>
               <button class="pubtn" onclick="pickLicensePhoto()">Choose Photo</button>
               <input type="file" id="LPFI" accept="image/*" style="display:none" onchange="handleLicensePhoto(this)">
               <div class="pfn" id="LPFN"></div>
@@ -740,9 +573,8 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
       </div>
     </div>
 
-    <!-- ISSUED LIST -->
     <span class="stag">Issued This Session</span>
-    <h2 class="stitle" style="font-size:1.5rem;margin-bottom:1rem;">Document <strong>History</strong></h2>
+    <h2 class="stitle" style="font-size:1.5rem;margin-bottom:1rem">Document <strong>History</strong></h2>
     <div class="ilist" id="IL"><div class="empty">No documents issued yet this session</div></div>
   </div>
 </div>
@@ -757,14 +589,13 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 
   <!-- CERTIFICATE VIEW -->
   <div id="certView" style="display:none">
-  <div class="cert" style="-webkit-transform:translateZ(0);transform:translateZ(0)">
+  <div class="cert">
     <div class="cert-border-outer"></div>
     <div class="cert-border-inner"></div>
     <div class="cert-corner tl"></div><div class="cert-corner tr"></div>
     <div class="cert-corner bl"></div><div class="cert-corner br"></div>
     <div class="cwm">Water Sport Federation WSF Water Sport Federation WSF Water Sport Federation</div>
     <div class="cwt"></div><div class="cwb"></div>
-    <div class="cwt2"></div><div class="cwb2"></div>
 
     <!-- WSF LOGO | left=32 top=18 -->
     <div style="position:absolute;left:32px;top:18px;z-index:10;display:flex;align-items:center;gap:12px">
@@ -786,7 +617,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 
     <!-- TITLE | left=0 top=182 -->
     <div style="position:absolute;left:0;top:182px;width:794px;z-index:10;text-align:center;padding:0 44px">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:3.1rem;font-weight:600;color:#f0d980;line-height:1;letter-spacing:.04em;text-shadow:0 2px 12px rgba(201,168,76,.3)">Certificate of Attendance</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:3.1rem;font-weight:600;color:#f0d980;line-height:1;letter-spacing:.04em">Certificate of Attendance</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:rgba(201,168,76,.65);margin-top:5px">Water Sport Federation — International Certification Programme</div>
     </div>
 
@@ -795,7 +626,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 
     <!-- TRAINEE NAME | left=0 top=310 -->
     <div style="position:absolute;left:0;top:310px;width:794px;z-index:10;text-align:center;padding:0 60px">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:rgba(201,168,76,.62);margin-bottom:7px;letter-spacing:.05em">This is to certify that</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:rgba(201,168,76,.62);margin-bottom:7px">This is to certify that</div>
       <div id="CNME" style="font-family:'Cormorant Garamond',serif;font-size:2.9rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(201,168,76,.2)">-</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:.9rem;font-style:italic;color:rgba(201,168,76,.62);margin-bottom:6px">has successfully completed the requirements for</div>
       <div id="CLVL" style="font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:700;color:var(--gold);letter-spacing:.02em">-</div>
@@ -809,7 +640,7 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
       </div>
     </div>
 
-    <!-- CERT NO + TRAINER NAME + STARS | left=184 top=503 -->
+    <!-- CERT NO + TRAINER NAME | left=184 top=503 -->
     <div style="position:absolute;left:184px;top:503px;width:390px;z-index:10">
       <div style="display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 14px;border:.5px solid rgba(201,168,76,.22);background:rgba(201,168,76,.04)">
         <div style="text-align:center">
@@ -850,53 +681,45 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
     <!-- QR CODE | left=577 top=756 -->
     <div style="position:absolute;left:577px;top:756px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:4px">
       <div id="QRCODE" style="width:84px;height:84px;background:rgba(255,255,255,.96);border:1.5px solid rgba(201,168,76,.45);border-radius:3px;padding:4px;box-sizing:border-box"></div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify</div>
     </div>
 
     <!-- GOLDEN BADGE | left=53 top=776 -->
-    <div class="cert-gold-badge" style="position:absolute;left:53px;top:776px;width:96px;height:96px;z-index:20;pointer-events:none">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="96" height="96" style="filter:drop-shadow(0 4px 12px rgba(201,168,76,.5))">
+    <div style="position:absolute;left:53px;top:776px;width:96px;height:96px;z-index:20;pointer-events:none">
+      <svg viewBox="0 0 100 100" width="96" height="96" style="filter:drop-shadow(0 4px 12px rgba(201,168,76,.5))">
         <defs>
-          <radialGradient id="badgeGrad" cx="40%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#f5e070"/><stop offset="40%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#8a6820"/>
-          </radialGradient>
-          <radialGradient id="badgeInner" cx="40%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#f5e070"/><stop offset="60%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07828"/>
-          </radialGradient>
+          <radialGradient id="bG" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#f5e070"/><stop offset="40%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#8a6820"/></radialGradient>
+          <radialGradient id="bI" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#f5e070"/><stop offset="60%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07828"/></radialGradient>
         </defs>
         <g transform="translate(50,50)">
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(0)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(22.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(45)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(67.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(90)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(112.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(135)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(157.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(180)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(202.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(225)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(247.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(270)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(292.5)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(315)"/>
-          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#badgeGrad)" transform="rotate(337.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(0)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(22.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(45)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(67.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(90)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(112.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(135)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(157.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(180)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(202.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(225)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(247.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(270)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(292.5)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(315)"/>
+          <polygon points="0,-48 2.5,-32 0,-28 -2.5,-32" fill="url(#bG)" transform="rotate(337.5)"/>
         </g>
-        <circle cx="50" cy="50" r="32" fill="url(#badgeGrad)"/>
+        <circle cx="50" cy="50" r="32" fill="url(#bG)"/>
         <circle cx="50" cy="50" r="29" fill="none" stroke="#f5e070" stroke-width="1"/>
-        <circle cx="50" cy="50" r="26" fill="url(#badgeInner)"/>
+        <circle cx="50" cy="50" r="26" fill="url(#bI)"/>
         <circle cx="50" cy="50" r="24" fill="#0a1628"/>
         <circle cx="50" cy="50" r="22" fill="none" stroke="#c9a84c" stroke-width="0.8"/>
         <text x="50" y="46" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="9" font-weight="700" fill="#c9a84c" letter-spacing="2">WSF</text>
         <text x="50" y="55" text-anchor="middle" font-family="serif" font-size="7" fill="#c9a84c">&#9733;</text>
-        <path id="badgeArc" d="M 22,50 A 28,28 0 0 0 78,50" fill="none"/>
-        <text font-family="Barlow Condensed,sans-serif" font-size="5.5" font-weight="700" fill="#c9a84c" letter-spacing="1">
-          <textPath href="#badgeArc" startOffset="10%">CERTIFIED &bull; AUTHENTIC</textPath>
-        </text>
-        <path id="outerRing" d="M 50,50 m -38,0 a 38,38 0 1 1 76,0 a 38,38 0 1 1 -76,0" fill="none"/>
-        <text font-family="Barlow Condensed,sans-serif" font-size="5" font-weight="700" fill="#c9a84c" letter-spacing="2.5">
-          <textPath href="#outerRing" startOffset="5%">WATER SPORT FEDERATION &bull; SEAL &bull; </textPath>
-        </text>
+        <path id="bArc" d="M 22,50 A 28,28 0 0 0 78,50" fill="none"/>
+        <text font-family="Barlow Condensed,sans-serif" font-size="5.5" font-weight="700" fill="#c9a84c" letter-spacing="1"><textPath href="#bArc" startOffset="10%">CERTIFIED &bull; AUTHENTIC</textPath></text>
+        <path id="bRing" d="M 50,50 m -38,0 a 38,38 0 1 1 76,0 a 38,38 0 1 1 -76,0" fill="none"/>
+        <text font-family="Barlow Condensed,sans-serif" font-size="5" font-weight="700" fill="#c9a84c" letter-spacing="2.5"><textPath href="#bRing" startOffset="5%">WATER SPORT FEDERATION &bull; SEAL &bull; </textPath></text>
       </svg>
     </div>
 
@@ -907,31 +730,23 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.5)">President · Water Sport Federation</div>
     </div>
 
-    <!-- FOOTER TEXT | left=44 top=965 -->
-    <div style="position:absolute;left:44px;top:965px;width:420px;z-index:10">
+    <!-- FOOTER | left=44 top=972 -->
+    <div style="position:absolute;left:44px;top:972px;width:420px;z-index:10">
       <div class="cert-footer-text">This certificate is issued by the Water Sport Federation and can be verified at watersportfederation.org</div>
     </div>
-
   </div>
   </div>
 
-  <!-- LICENSE VIEW - Double sided card -->
+  <!-- LICENSE VIEW -->
   <div id="licView" style="display:none">
-
-    <!-- FRONT SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
-
-    <!-- FRONT SIDE -->
-    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
+    <div class="doc-label" style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
+    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;border:1px solid rgba(201,168,76,.3)">
+      <div class="lic-border"></div>
+      <div class="lic-corner tl"></div><div class="lic-corner tr"></div>
+      <div class="lic-corner bl"></div><div class="lic-corner br"></div>
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
       <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3">Water Sport Federation WSF Water Sport Federation WSF</div>
-      <!-- WSF Logo top left -->
       <div style="position:absolute;top:18px;left:20px;width:88px;height:88px;z-index:10">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88">
           <defs><linearGradient id="llg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5e070"/><stop offset="50%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07020"/></linearGradient></defs>
@@ -945,19 +760,16 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
           <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
         </svg>
       </div>
-      <!-- Org name -->
       <div style="position:absolute;top:28px;left:120px;right:200px;z-index:10">
         <div style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:#f0d980;letter-spacing:.04em;line-height:1.2">Water Sport Federation</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.6);margin-top:3px">watersportfederation.org &nbsp;&#183;&nbsp; Swiss NPO</div>
         <div style="margin-top:6px;display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:#c9a84c;padding:2px 10px">Teaching License</div>
       </div>
       <div style="position:absolute;top:112px;left:20px;right:20px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.5),rgba(201,168,76,.9),rgba(201,168,76,.5),transparent);z-index:10"></div>
-      <!-- Holder photo -->
       <div style="position:absolute;top:126px;left:24px;width:120px;height:150px;background:rgba(201,168,76,.06);border:1.5px solid rgba(201,168,76,.3);overflow:hidden;display:flex;align-items:center;justify-content:center;z-index:10">
         <img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
         <div id="LCPP" style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center">Holder Photo</div>
       </div>
-      <!-- Info fields -->
       <div style="position:absolute;top:122px;left:158px;right:200px;z-index:10">
         <div id="LNAME" style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:5px">-</div>
         <div id="LSPEC" style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px">-</div>
@@ -970,7 +782,6 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
           <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Status</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;color:#4ade80">ACTIVE</div></div>
         </div>
       </div>
-      <!-- Right panel -->
       <div style="position:absolute;top:18px;right:20px;width:165px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="width:80px;height:95px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);overflow:hidden;display:flex;align-items:center;justify-content:center">
           <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
@@ -982,9 +793,8 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
         <div id="LTRNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;color:rgba(201,168,76,.4);letter-spacing:.05em;text-align:center">-</div>
         <div style="width:100%;height:.5px;background:rgba(201,168,76,.2)"></div>
         <div id="LQRCODE" style="width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify</div>
       </div>
-      <!-- Signature -->
       <div style="position:absolute;bottom:22px;left:24px;z-index:10">
         <div style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#c9a84c;font-weight:600;border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:3px;margin-bottom:3px">Mohammad Almassri</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55)">President &#183; Water Sport Federation</div>
@@ -993,20 +803,13 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#4ade80">Authorized to Teach</div>
       </div>
     </div>
-
-    <!-- BACK SIDE label -->
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:8px 0 6px">CARD BACK</div>
-
-    <!-- BACK SIDE -->
-    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
+    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;border:1px solid rgba(201,168,76,.3)">
+      <div class="lic-border"></div>
+      <div class="lic-corner tl"></div><div class="lic-corner tr"></div>
+      <div class="lic-corner bl"></div><div class="lic-corner br"></div>
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <!-- Large logo watermark -->
       <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;height:320px;opacity:.1;z-index:1">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="320" height="320">
           <circle cx="80" cy="80" r="72" fill="none" stroke="#c9a84c" stroke-width="2"/>
@@ -1018,9 +821,6 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
           <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
         </svg>
       </div>
-      <!-- Diagonal watermark text -->
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3.5">WATER SPORT FEDERATION &#183; CERTIFIED &#183; AUTHORIZED &#183; WATER SPORT FEDERATION &#183; CERTIFIED</div>
-      <!-- Center content -->
       <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10;width:600px">
         <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#f0d980;letter-spacing:.05em;margin-bottom:10px">Water Sport Federation</div>
         <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 14px"></div>
@@ -1029,390 +829,12 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:8px">Certified Disciplines</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.65);line-height:2">Swimming &#183; Infant Aquatics &#183; Water Polo<br>SUP &#183; Kayaking &#183; Lifeguarding</div>
       </div>
-      <!-- Bottom -->
       <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:10">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.15em;color:rgba(201,168,76,.4)">This card is property of Water Sport Federation &#183; watersportfederation.org</div>
       </div>
     </div>
   </div>
-
-</body>
-</html
-  </div>
-  </div>
-
-  <!-- LICENSE VIEW - Double sided card -->
-  <div id="licView" style="display:none">
-
-    <!-- FRONT SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
-
-    <!-- FRONT SIDE -->
-    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3">Water Sport Federation WSF Water Sport Federation WSF</div>
-      <!-- WSF Logo top left -->
-      <div style="position:absolute;top:18px;left:20px;width:88px;height:88px;z-index:10">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88">
-          <defs><linearGradient id="llg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5e070"/><stop offset="50%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07020"/></linearGradient></defs>
-          <circle cx="80" cy="80" r="72" fill="none" stroke="url(#llg)" stroke-width="2.5"/>
-          <circle cx="80" cy="80" r="63" fill="#0d1f3c"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="url(#llg)" letter-spacing="3">WSF</text>
-          <path d="M48,108 Q66,100 80,108 Q94,116 112,108" fill="none" stroke="#c9a84c" stroke-width="1.5" stroke-opacity="0.7"/>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Org name -->
-      <div style="position:absolute;top:28px;left:120px;right:200px;z-index:10">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:#f0d980;letter-spacing:.04em;line-height:1.2">Water Sport Federation</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.6);margin-top:3px">watersportfederation.org &nbsp;&#183;&nbsp; Swiss NPO</div>
-        <div style="margin-top:6px;display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:#c9a84c;padding:2px 10px">Teaching License</div>
-      </div>
-      <div style="position:absolute;top:112px;left:20px;right:20px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.5),rgba(201,168,76,.9),rgba(201,168,76,.5),transparent);z-index:10"></div>
-      <!-- Holder photo -->
-      <div style="position:absolute;top:126px;left:24px;width:120px;height:150px;background:rgba(201,168,76,.06);border:1.5px solid rgba(201,168,76,.3);overflow:hidden;display:flex;align-items:center;justify-content:center;z-index:10">
-        <img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-        <div id="LCPP" style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center">Holder Photo</div>
-      </div>
-      <!-- Info fields -->
-      <div style="position:absolute;top:122px;left:158px;right:200px;z-index:10">
-        <div id="LNAME" style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:5px">-</div>
-        <div id="LSPEC" style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px">-</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">License No.</div><div id="LNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;color:#c9a84c">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Date of Birth</div><div id="LDOB2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Issue Date</div><div id="LDATE" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Valid Until</div><div id="LEXP2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f59e0b">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Nationality</div><div id="LNAT2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Status</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;color:#4ade80">ACTIVE</div></div>
-        </div>
-      </div>
-      <!-- Right panel -->
-      <div style="position:absolute;top:18px;right:20px;width:165px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px">
-        <div style="width:80px;height:95px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);overflow:hidden;display:flex;align-items:center;justify-content:center">
-          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:4px">Trainer Photo</div>
-        </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Issuing Trainer</div>
-        <div id="LTRNAME" style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:600;color:#f8f6f0;text-align:center;line-height:1.2">-</div>
-        <div id="LTRSTARS" style="font-size:.85rem;color:#c9a84c;letter-spacing:.12em;text-align:center"></div>
-        <div id="LTRNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;color:rgba(201,168,76,.4);letter-spacing:.05em;text-align:center">-</div>
-        <div style="width:100%;height:.5px;background:rgba(201,168,76,.2)"></div>
-        <div id="LQRCODE" style="width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
-      </div>
-      <!-- Signature -->
-      <div style="position:absolute;bottom:22px;left:24px;z-index:10">
-        <div style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#c9a84c;font-weight:600;border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:3px;margin-bottom:3px">Mohammad Almassri</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55)">President &#183; Water Sport Federation</div>
-      </div>
-      <div style="position:absolute;bottom:22px;right:210px;z-index:10;background:rgba(0,200,100,.1);border:1px solid rgba(0,200,100,.35);padding:4px 14px">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#4ade80">Authorized to Teach</div>
-      </div>
-    </div>
-
-    <!-- BACK SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:8px 0 6px">CARD BACK</div>
-
-    <!-- BACK SIDE -->
-    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <!-- Large logo watermark -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;height:320px;opacity:.1;z-index:1">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="320" height="320">
-          <circle cx="80" cy="80" r="72" fill="none" stroke="#c9a84c" stroke-width="2"/>
-          <circle cx="80" cy="80" r="63" fill="none" stroke="#c9a84c" stroke-width="1"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#c9a84c" letter-spacing="3">WSF</text>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Diagonal watermark text -->
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3.5">WATER SPORT FEDERATION &#183; CERTIFIED &#183; AUTHORIZED &#183; WATER SPORT FEDERATION &#183; CERTIFIED</div>
-      <!-- Center content -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10;width:600px">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#f0d980;letter-spacing:.05em;margin-bottom:10px">Water Sport Federation</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 14px"></div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(201,168,76,.8);line-height:1.7;margin-bottom:14px">"Excellence in Every Stroke,<br>Safety in Every Wave"</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 16px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:8px">Certified Disciplines</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.65);line-height:2">Swimming &#183; Infant Aquatics &#183; Water Polo<br>SUP &#183; Kayaking &#183; Lifeguarding</div>
-      </div>
-      <!-- Bottom -->
-      <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:10">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.15em;color:rgba(201,168,76,.4)">This card is property of Water Sport Federation &#183; watersportfederation.org</div>
-      </div>
-    </div>
-  </div>
-
-</body>
-</html
-  </div>
-  </div>
-
-  <!-- LICENSE VIEW - Double sided card -->
-  <div id="licView" style="display:none">
-
-    <!-- FRONT SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
-
-    <!-- FRONT SIDE -->
-    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3">Water Sport Federation WSF Water Sport Federation WSF</div>
-      <!-- WSF Logo top left -->
-      <div style="position:absolute;top:18px;left:20px;width:88px;height:88px;z-index:10">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88">
-          <defs><linearGradient id="llg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5e070"/><stop offset="50%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07020"/></linearGradient></defs>
-          <circle cx="80" cy="80" r="72" fill="none" stroke="url(#llg)" stroke-width="2.5"/>
-          <circle cx="80" cy="80" r="63" fill="#0d1f3c"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="url(#llg)" letter-spacing="3">WSF</text>
-          <path d="M48,108 Q66,100 80,108 Q94,116 112,108" fill="none" stroke="#c9a84c" stroke-width="1.5" stroke-opacity="0.7"/>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Org name -->
-      <div style="position:absolute;top:28px;left:120px;right:200px;z-index:10">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:#f0d980;letter-spacing:.04em;line-height:1.2">Water Sport Federation</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.6);margin-top:3px">watersportfederation.org &nbsp;&#183;&nbsp; Swiss NPO</div>
-        <div style="margin-top:6px;display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:#c9a84c;padding:2px 10px">Teaching License</div>
-      </div>
-      <div style="position:absolute;top:112px;left:20px;right:20px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.5),rgba(201,168,76,.9),rgba(201,168,76,.5),transparent);z-index:10"></div>
-      <!-- Holder photo -->
-      <div style="position:absolute;top:126px;left:24px;width:120px;height:150px;background:rgba(201,168,76,.06);border:1.5px solid rgba(201,168,76,.3);overflow:hidden;display:flex;align-items:center;justify-content:center;z-index:10">
-        <img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-        <div id="LCPP" style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center">Holder Photo</div>
-      </div>
-      <!-- Info fields -->
-      <div style="position:absolute;top:122px;left:158px;right:200px;z-index:10">
-        <div id="LNAME" style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:5px">-</div>
-        <div id="LSPEC" style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px">-</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">License No.</div><div id="LNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;color:#c9a84c">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Date of Birth</div><div id="LDOB2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Issue Date</div><div id="LDATE" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Valid Until</div><div id="LEXP2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f59e0b">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Nationality</div><div id="LNAT2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Status</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;color:#4ade80">ACTIVE</div></div>
-        </div>
-      </div>
-      <!-- Right panel -->
-      <div style="position:absolute;top:18px;right:20px;width:165px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px">
-        <div style="width:80px;height:95px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);overflow:hidden;display:flex;align-items:center;justify-content:center">
-          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:4px">Trainer Photo</div>
-        </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Issuing Trainer</div>
-        <div id="LTRNAME" style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:600;color:#f8f6f0;text-align:center;line-height:1.2">-</div>
-        <div id="LTRSTARS" style="font-size:.85rem;color:#c9a84c;letter-spacing:.12em;text-align:center"></div>
-        <div id="LTRNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;color:rgba(201,168,76,.4);letter-spacing:.05em;text-align:center">-</div>
-        <div style="width:100%;height:.5px;background:rgba(201,168,76,.2)"></div>
-        <div id="LQRCODE" style="width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
-      </div>
-      <!-- Signature -->
-      <div style="position:absolute;bottom:22px;left:24px;z-index:10">
-        <div style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#c9a84c;font-weight:600;border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:3px;margin-bottom:3px">Mohammad Almassri</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55)">President &#183; Water Sport Federation</div>
-      </div>
-      <div style="position:absolute;bottom:22px;right:210px;z-index:10;background:rgba(0,200,100,.1);border:1px solid rgba(0,200,100,.35);padding:4px 14px">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#4ade80">Authorized to Teach</div>
-      </div>
-    </div>
-
-    <!-- BACK SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:8px 0 6px">CARD BACK</div>
-
-    <!-- BACK SIDE -->
-    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <!-- Large logo watermark -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;height:320px;opacity:.1;z-index:1">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="320" height="320">
-          <circle cx="80" cy="80" r="72" fill="none" stroke="#c9a84c" stroke-width="2"/>
-          <circle cx="80" cy="80" r="63" fill="none" stroke="#c9a84c" stroke-width="1"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#c9a84c" letter-spacing="3">WSF</text>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Diagonal watermark text -->
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3.5">WATER SPORT FEDERATION &#183; CERTIFIED &#183; AUTHORIZED &#183; WATER SPORT FEDERATION &#183; CERTIFIED</div>
-      <!-- Center content -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10;width:600px">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#f0d980;letter-spacing:.05em;margin-bottom:10px">Water Sport Federation</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 14px"></div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(201,168,76,.8);line-height:1.7;margin-bottom:14px">"Excellence in Every Stroke,<br>Safety in Every Wave"</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 16px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:8px">Certified Disciplines</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.65);line-height:2">Swimming &#183; Infant Aquatics &#183; Water Polo<br>SUP &#183; Kayaking &#183; Lifeguarding</div>
-      </div>
-      <!-- Bottom -->
-      <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:10">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.15em;color:rgba(201,168,76,.4)">This card is property of Water Sport Federation &#183; watersportfederation.org</div>
-      </div>
-    </div>
-  </div>
-
-</body>
-</html
-  </div>
-  </div>
-
-  <!-- LICENSE VIEW - Double sided card -->
-  <div id="licView" style="display:none">
-
-    <!-- FRONT SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:0 0 6px">CARD FRONT</div>
-
-    <!-- FRONT SIDE -->
-    <div id="licFront" style="width:856px;height:540px;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);position:relative;overflow:hidden;margin:0 auto 16px;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3">Water Sport Federation WSF Water Sport Federation WSF</div>
-      <!-- WSF Logo top left -->
-      <div style="position:absolute;top:18px;left:20px;width:88px;height:88px;z-index:10">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88">
-          <defs><linearGradient id="llg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5e070"/><stop offset="50%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#a07020"/></linearGradient></defs>
-          <circle cx="80" cy="80" r="72" fill="none" stroke="url(#llg)" stroke-width="2.5"/>
-          <circle cx="80" cy="80" r="63" fill="#0d1f3c"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="url(#llg)" letter-spacing="3">WSF</text>
-          <path d="M48,108 Q66,100 80,108 Q94,116 112,108" fill="none" stroke="#c9a84c" stroke-width="1.5" stroke-opacity="0.7"/>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Org name -->
-      <div style="position:absolute;top:28px;left:120px;right:200px;z-index:10">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:#f0d980;letter-spacing:.04em;line-height:1.2">Water Sport Federation</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.6);margin-top:3px">watersportfederation.org &nbsp;&#183;&nbsp; Swiss NPO</div>
-        <div style="margin-top:6px;display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:#c9a84c;padding:2px 10px">Teaching License</div>
-      </div>
-      <div style="position:absolute;top:112px;left:20px;right:20px;height:1px;background:linear-gradient(to right,transparent,rgba(201,168,76,.5),rgba(201,168,76,.9),rgba(201,168,76,.5),transparent);z-index:10"></div>
-      <!-- Holder photo -->
-      <div style="position:absolute;top:126px;left:24px;width:120px;height:150px;background:rgba(201,168,76,.06);border:1.5px solid rgba(201,168,76,.3);overflow:hidden;display:flex;align-items:center;justify-content:center;z-index:10">
-        <img id="LCPI" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-        <div id="LCPP" style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center">Holder Photo</div>
-      </div>
-      <!-- Info fields -->
-      <div style="position:absolute;top:122px;left:158px;right:200px;z-index:10">
-        <div id="LNAME" style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:#f8f6f0;line-height:1;margin-bottom:5px">-</div>
-        <div id="LSPEC" style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px">-</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">License No.</div><div id="LNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;color:#c9a84c">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Date of Birth</div><div id="LDOB2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Issue Date</div><div id="LDATE" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Valid Until</div><div id="LEXP2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f59e0b">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Nationality</div><div id="LNAT2" style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:600;color:#f8f6f0">-</div></div>
-          <div style="border-bottom:.5px solid rgba(201,168,76,.15);padding-bottom:6px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.45);margin-bottom:2px">Status</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;color:#4ade80">ACTIVE</div></div>
-        </div>
-      </div>
-      <!-- Right panel -->
-      <div style="position:absolute;top:18px;right:20px;width:165px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px">
-        <div style="width:80px;height:95px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);overflow:hidden;display:flex;align-items:center;justify-content:center">
-          <img id="LTRPHOTO" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-          <div id="LTRPHOTOPH" style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.3);text-align:center;padding:4px">Trainer Photo</div>
-        </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Issuing Trainer</div>
-        <div id="LTRNAME" style="font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:600;color:#f8f6f0;text-align:center;line-height:1.2">-</div>
-        <div id="LTRSTARS" style="font-size:.85rem;color:#c9a84c;letter-spacing:.12em;text-align:center"></div>
-        <div id="LTRNO" style="font-family:'Barlow Condensed',sans-serif;font-size:.52rem;color:rgba(201,168,76,.4);letter-spacing:.05em;text-align:center">-</div>
-        <div style="width:100%;height:.5px;background:rgba(201,168,76,.2)"></div>
-        <div id="LQRCODE" style="width:82px;height:82px;background:rgba(255,255,255,.95);border:1.5px solid rgba(201,168,76,.4);border-radius:3px;padding:4px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(201,168,76,.45);text-align:center">Scan to verify<br>watersportfederation.org</div>
-      </div>
-      <!-- Signature -->
-      <div style="position:absolute;bottom:22px;left:24px;z-index:10">
-        <div style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#c9a84c;font-weight:600;border-bottom:1px solid rgba(201,168,76,.25);padding-bottom:3px;margin-bottom:3px">Mohammad Almassri</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.55rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:rgba(201,168,76,.55)">President &#183; Water Sport Federation</div>
-      </div>
-      <div style="position:absolute;bottom:22px;right:210px;z-index:10;background:rgba(0,200,100,.1);border:1px solid rgba(0,200,100,.35);padding:4px 14px">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#4ade80">Authorized to Teach</div>
-      </div>
-    </div>
-
-    <!-- BACK SIDE label -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.5);text-align:center;margin:8px 0 6px">CARD BACK</div>
-
-    <!-- BACK SIDE -->
-    <div id="licBack" style="width:856px;height:540px;background:linear-gradient(145deg,#0a1628 0%,#0d1f3c 40%,#071020 100%);position:relative;overflow:hidden;margin:0 auto;font-family:'Barlow',sans-serif;border:1px solid rgba(201,168,76,.3);">
-      <div style="position:absolute;top:8px;left:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;top:8px;right:8px;width:40px;height:40px;border-top:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-left:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;border-bottom:2px solid #c9a84c;border-right:2px solid #c9a84c;z-index:10;pointer-events:none"></div>
-      <div style="position:absolute;inset:8px;border:0.5px solid rgba(201,168,76,.15);z-index:5;pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(to right,transparent,#c9a84c,#f5e070,#c9a84c,transparent);z-index:10"></div>
-      <!-- Large logo watermark -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;height:320px;opacity:.1;z-index:1">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="320" height="320">
-          <circle cx="80" cy="80" r="72" fill="none" stroke="#c9a84c" stroke-width="2"/>
-          <circle cx="80" cy="80" r="63" fill="none" stroke="#c9a84c" stroke-width="1"/>
-          <text x="80" y="98" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#c9a84c" letter-spacing="3">WSF</text>
-          <polygon points="80,8 83,14 80,20 77,14" fill="#c9a84c"/>
-          <polygon points="80,140 83,146 80,152 77,146" fill="#c9a84c"/>
-          <polygon points="8,80 14,83 20,80 14,77" fill="#c9a84c"/>
-          <polygon points="140,80 146,83 152,80 146,77" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <!-- Diagonal watermark text -->
-      <div style="position:absolute;top:50%;left:-10%;width:120%;transform:translateY(-50%) rotate(-20deg);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.04);white-space:nowrap;pointer-events:none;z-index:1;line-height:3.5">WATER SPORT FEDERATION &#183; CERTIFIED &#183; AUTHORIZED &#183; WATER SPORT FEDERATION &#183; CERTIFIED</div>
-      <!-- Center content -->
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10;width:600px">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:#f0d980;letter-spacing:.05em;margin-bottom:10px">Water Sport Federation</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 14px"></div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:rgba(201,168,76,.8);line-height:1.7;margin-bottom:14px">"Excellence in Every Stroke,<br>Safety in Every Wave"</div>
-        <div style="width:200px;height:1px;background:linear-gradient(to right,transparent,#c9a84c,transparent);margin:0 auto 16px"></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:rgba(201,168,76,.5);margin-bottom:8px">Certified Disciplines</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,168,76,.65);line-height:2">Swimming &#183; Infant Aquatics &#183; Water Polo<br>SUP &#183; Kayaking &#183; Lifeguarding</div>
-      </div>
-      <!-- Bottom -->
-      <div style="position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:10">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:.15em;color:rgba(201,168,76,.4)">This card is property of Water Sport Federation &#183; watersportfederation.org</div>
-      </div>
-    </div>
-  </div>
+</div>
 
 </body>
 </html>
