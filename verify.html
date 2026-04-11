@@ -247,6 +247,23 @@ footer{text-align:center;padding:1.5rem;font-family:'Barlow Condensed',sans-seri
 var SUPABASE_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
 var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
 
+function isIOS(){return /iPad|iPhone|iPod/.test(navigator.userAgent);}
+function savePDF(pdf, filename){
+  if(isIOS()){
+    var data = pdf.output('datauristring');
+    var w = window.open('');
+    if(w){
+      w.document.write('<html><head><title>'+filename+'</title></head><body style="margin:0"><iframe src="'+data+'" width="100%" height="100%" style="border:none;position:fixed;inset:0"></iframe></body></html>');
+      w.document.close();
+    } else {
+      var blob = pdf.output('blob');
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);},3000);
+    }
+  } else { pdf.save(filename); }
+}
+
 var DB = {
   "WSF-MIT-2026-001": {
     name:"Bilal Jafar", type:"license",
@@ -375,7 +392,7 @@ async function downloadDoc() {
     document.body.removeChild(container);
 
     var name = document.getElementById('lcName').textContent.trim() || 'WSF';
-    pdf.save('WSF-License-' + name.replace(/\s+/g, '-') + '.pdf');
+    savePDF(pdf, 'WSF-License-' + name.replace(/\s+/g, '-') + '.pdf');
   } catch(e) {
     console.error('PDF error:', e);
     alert('PDF failed: ' + e.message);
