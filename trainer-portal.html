@@ -331,16 +331,48 @@ async function downloadCertPDF() {
   try {
     var docEl = document.querySelector(".cert");
     if (!docEl) { alert("No certificate to download."); btn.textContent="Download Certificate PDF"; btn.disabled=false; return; }
-    var pdf = new jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+
+    // Force element to be fully visible and sized for mobile capture
+    var prevVis = docEl.style.visibility;
+    var prevPos = docEl.style.position;
+    docEl.style.visibility = "visible";
+
+    // Wait for fonts/layout
+    await new Promise(function(r){ setTimeout(r, 300); });
+
+    var canvas = await html2canvas(docEl, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#0a1628",
+      logging: false,
+      width: 794,
+      height: docEl.scrollHeight || 1020,
+      windowWidth: 794
+    });
+
+    docEl.style.visibility = prevVis;
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error("Canvas has zero dimensions. Try on a desktop browser.");
+    }
+
+    var imgData = canvas.toDataURL("image/jpeg", 0.93);
+    var pdf = new jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
-    var canvas = await html2canvas(docEl, {scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-    var ratio = Math.min(pdfW/(canvas.width/3.7795), pdfH/(canvas.height/3.7795));
-    var w = (canvas.width/3.7795)*ratio, h = (canvas.height/3.7795)*ratio;
-    pdf.addImage(canvas.toDataURL("image/jpeg",0.95), "JPEG", (pdfW-w)/2, (pdfH-h)/2, w, h);
-    var name = (document.getElementById("CNME")||{textContent:"Certificate"}).textContent.trim();
-    pdf.save("WSF-Certificate-" + name.replace(/\s+/g,"-") + ".pdf");
-  } catch(e) { alert("PDF failed: " + e.message); }
+    var imgW = canvas.width;
+    var imgH = canvas.height;
+    var ratio = Math.min(pdfW / (imgW / 3.7795), pdfH / (imgH / 3.7795));
+    var w = (imgW / 3.7795) * ratio;
+    var h = (imgH / 3.7795) * ratio;
+    pdf.addImage(imgData, "JPEG", (pdfW - w) / 2, (pdfH - h) / 2, w, h);
+    var name = (document.getElementById("CNME") || {textContent:"Certificate"}).textContent.trim();
+    pdf.save("WSF-Certificate-" + name.replace(/\s+/g, "-") + ".pdf");
+  } catch(e) {
+    console.error("PDF error:", e);
+    alert("PDF failed: " + e.message);
+  }
   btn.textContent = "Download Certificate PDF"; btn.disabled = false;
 }
 
@@ -351,17 +383,41 @@ async function downloadLicPDF() {
     var front = document.getElementById("licFront");
     var back  = document.getElementById("licBack");
     if (!front) { alert("No license to download."); btn.textContent="Download License PDF"; btn.disabled=false; return; }
-    var pdf = new jspdf.jsPDF({orientation:"landscape", unit:"mm", format:[85.6, 54]});
-    var c1 = await html2canvas(front, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-    pdf.addImage(c1.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
+
+    // Wait for layout
+    await new Promise(function(r){ setTimeout(r, 300); });
+
+    var captureOpts = {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#0a1628",
+      logging: false,
+      width: front.offsetWidth || 856,
+      height: front.offsetHeight || 540,
+      windowWidth: document.documentElement.scrollWidth
+    };
+
+    var c1 = await html2canvas(front, captureOpts);
+    if (!c1.width || !c1.height) throw new Error("Canvas has zero dimensions.");
+
+    var pdf = new jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: [85.6, 54] });
+    pdf.addImage(c1.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
+
     if (back) {
+      captureOpts.width  = back.offsetWidth  || 856;
+      captureOpts.height = back.offsetHeight || 540;
+      var c2 = await html2canvas(back, captureOpts);
       pdf.addPage([85.6, 54], "landscape");
-      var c2 = await html2canvas(back, {scale:4, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false});
-      pdf.addImage(c2.toDataURL("image/jpeg",0.97), "JPEG", 0, 0, 85.6, 54);
+      pdf.addImage(c2.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
     }
-    var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
-    pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
-  } catch(e) { alert("PDF failed: " + e.message); }
+
+    var name = (document.getElementById("LNAME") || {textContent:"License"}).textContent.trim();
+    pdf.save("WSF-License-" + name.replace(/\s+/g, "-") + ".pdf");
+  } catch(e) {
+    console.error("PDF error:", e);
+    alert("PDF failed: " + e.message);
+  }
   btn.textContent = "Download License PDF"; btn.disabled = false;
 }
 </script>
