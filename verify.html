@@ -340,42 +340,39 @@ async function downloadDoc() {
   var btn = document.getElementById('dlBtn');
   btn.textContent = 'Generating...'; btn.disabled = true;
   try {
-    var front = document.getElementById('licFront');
-    var back  = document.getElementById('licBack');
-    if (!front) throw new Error('No document to download.');
+    var frontOrig = document.getElementById('licFront');
+    var backOrig  = document.getElementById('licBack');
+    if (!frontOrig) throw new Error('No document to download.');
 
-    // Wait for layout to settle
-    await new Promise(function(r){ setTimeout(r, 400); });
+    // Clone into off-screen visible container - fixes blank PDF on mobile
+    var container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:856px;z-index:-1;background:#0a1628;';
+    var front = frontOrig.cloneNode(true);
+    var back  = backOrig ? backOrig.cloneNode(true) : null;
+    front.style.cssText = 'width:856px;height:540px;position:relative;overflow:hidden;';
+    container.appendChild(front);
+    if (back) {
+      back.style.cssText = 'width:856px;height:540px;position:relative;overflow:hidden;margin-top:4px;';
+      container.appendChild(back);
+    }
+    document.body.appendChild(container);
 
-    var w = front.offsetWidth  || 856;
-    var h = front.offsetHeight || 540;
+    await new Promise(function(r){ setTimeout(r, 500); });
 
-    if (!w || !h) throw new Error('Document has no size. Please try on a desktop browser.');
-
-    var opts = {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#0a1628',
-      logging: false,
-      width: w,
-      height: h,
-      windowWidth: Math.max(document.documentElement.scrollWidth, w)
-    };
-
+    var opts = { scale:2, useCORS:true, allowTaint:true, backgroundColor:'#0a1628', logging:false, width:856, height:540, windowWidth:856 };
     var c1 = await html2canvas(front, opts);
-    if (!c1.width || !c1.height) throw new Error('Canvas returned empty. Try a desktop browser.');
+    if (!c1.width || !c1.height) throw new Error('Canvas is empty. Please try again.');
 
-    var pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+    var pdf = new jspdf.jsPDF({ orientation:'landscape', unit:'mm', format:[85.6, 54] });
     pdf.addImage(c1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 85.6, 54);
 
     if (back) {
-      opts.width  = back.offsetWidth  || 856;
-      opts.height = back.offsetHeight || 540;
-      pdf.addPage([85.6, 54], 'landscape');
       var c2 = await html2canvas(back, opts);
+      pdf.addPage([85.6, 54], 'landscape');
       pdf.addImage(c2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 85.6, 54);
     }
+
+    document.body.removeChild(container);
 
     var name = document.getElementById('lcName').textContent.trim() || 'WSF';
     pdf.save('WSF-License-' + name.replace(/\s+/g, '-') + '.pdf');

@@ -329,44 +329,43 @@ async function downloadCertPDF() {
   var btn = document.getElementById("DLBTN_CERT");
   btn.textContent = "Generating..."; btn.disabled = true;
   try {
-    var docEl = document.querySelector(".cert");
-    if (!docEl) { alert("No certificate to download."); btn.textContent="Download Certificate PDF"; btn.disabled=false; return; }
+    var original = document.querySelector(".cert");
+    if (!original) throw new Error("Certificate not found.");
 
-    // Force element to be fully visible and sized for mobile capture
-    var prevVis = docEl.style.visibility;
-    var prevPos = docEl.style.position;
-    docEl.style.visibility = "visible";
+    // Clone the cert element into a visible off-screen container
+    // This fixes the blank screen on mobile caused by hidden parent elements
+    var container = document.createElement("div");
+    container.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#0a1628;z-index:-1;";
+    var clone = original.cloneNode(true);
+    clone.style.cssText = "width:794px;min-height:1020px;position:relative;overflow:hidden;";
+    container.appendChild(clone);
+    document.body.appendChild(container);
 
-    // Wait for fonts/layout
-    await new Promise(function(r){ setTimeout(r, 300); });
+    // Wait for fonts and layout
+    await new Promise(function(r){ setTimeout(r, 500); });
 
-    var canvas = await html2canvas(docEl, {
+    var canvas = await html2canvas(clone, {
       scale: 1.5,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#0a1628",
       logging: false,
       width: 794,
-      height: docEl.scrollHeight || 1020,
+      height: clone.scrollHeight || 1020,
       windowWidth: 794
     });
 
-    docEl.style.visibility = prevVis;
+    document.body.removeChild(container);
 
-    if (!canvas.width || !canvas.height) {
-      throw new Error("Canvas has zero dimensions. Try on a desktop browser.");
-    }
+    if (!canvas.width || !canvas.height) throw new Error("Canvas is empty. Please try again.");
 
-    var imgData = canvas.toDataURL("image/jpeg", 0.93);
     var pdf = new jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
-    var imgW = canvas.width;
-    var imgH = canvas.height;
-    var ratio = Math.min(pdfW / (imgW / 3.7795), pdfH / (imgH / 3.7795));
-    var w = (imgW / 3.7795) * ratio;
-    var h = (imgH / 3.7795) * ratio;
-    pdf.addImage(imgData, "JPEG", (pdfW - w) / 2, (pdfH - h) / 2, w, h);
+    var ratio = Math.min(pdfW / (canvas.width / 3.7795), pdfH / (canvas.height / 3.7795));
+    var w = (canvas.width / 3.7795) * ratio;
+    var h = (canvas.height / 3.7795) * ratio;
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.93), "JPEG", (pdfW - w) / 2, (pdfH - h) / 2, w, h);
     var name = (document.getElementById("CNME") || {textContent:"Certificate"}).textContent.trim();
     pdf.save("WSF-Certificate-" + name.replace(/\s+/g, "-") + ".pdf");
   } catch(e) {
@@ -380,37 +379,39 @@ async function downloadLicPDF() {
   var btn = document.getElementById("DLBTN_LIC");
   btn.textContent = "Generating..."; btn.disabled = true;
   try {
-    var front = document.getElementById("licFront");
-    var back  = document.getElementById("licBack");
-    if (!front) { alert("No license to download."); btn.textContent="Download License PDF"; btn.disabled=false; return; }
+    var frontOrig = document.getElementById("licFront");
+    var backOrig  = document.getElementById("licBack");
+    if (!frontOrig) throw new Error("License not found.");
 
-    // Wait for layout
-    await new Promise(function(r){ setTimeout(r, 300); });
+    // Clone both sides into a visible off-screen container
+    var container = document.createElement("div");
+    container.style.cssText = "position:fixed;left:-9999px;top:0;width:856px;z-index:-1;background:#0a1628;";
+    var front = frontOrig.cloneNode(true);
+    var back  = backOrig  ? backOrig.cloneNode(true) : null;
+    front.style.cssText = "width:856px;height:540px;position:relative;overflow:hidden;";
+    container.appendChild(front);
+    if (back) {
+      back.style.cssText = "width:856px;height:540px;position:relative;overflow:hidden;margin-top:4px;";
+      container.appendChild(back);
+    }
+    document.body.appendChild(container);
 
-    var captureOpts = {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#0a1628",
-      logging: false,
-      width: front.offsetWidth || 856,
-      height: front.offsetHeight || 540,
-      windowWidth: document.documentElement.scrollWidth
-    };
+    await new Promise(function(r){ setTimeout(r, 500); });
 
-    var c1 = await html2canvas(front, captureOpts);
-    if (!c1.width || !c1.height) throw new Error("Canvas has zero dimensions.");
+    var opts = { scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540, windowWidth:856 };
+    var c1 = await html2canvas(front, opts);
+    if (!c1.width || !c1.height) throw new Error("Canvas is empty. Please try again.");
 
     var pdf = new jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: [85.6, 54] });
     pdf.addImage(c1.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
 
     if (back) {
-      captureOpts.width  = back.offsetWidth  || 856;
-      captureOpts.height = back.offsetHeight || 540;
-      var c2 = await html2canvas(back, captureOpts);
+      var c2 = await html2canvas(back, opts);
       pdf.addPage([85.6, 54], "landscape");
       pdf.addImage(c2.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
     }
+
+    document.body.removeChild(container);
 
     var name = (document.getElementById("LNAME") || {textContent:"License"}).textContent.trim();
     pdf.save("WSF-License-" + name.replace(/\s+/g, "-") + ".pdf");
