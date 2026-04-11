@@ -289,6 +289,8 @@ function showCert(c) {
   document.getElementById("DLBTN_CERT").style.display = "block";
   document.getElementById("DLBTN_LIC").style.display  = "none";
   document.getElementById("CM").style.display = "flex";
+  // Force iOS repaint
+  document.getElementById("CM").style.webkitTransform = "translateZ(0)";
   document.body.style.overflow = "hidden";
 }
 
@@ -312,12 +314,8 @@ function showLicense(c) {
   else{trImg.style.display="none";if(trPh)trPh.style.display="block";}
   generateQR(c.no,"LQRCODE");
   currentDocType="license";
-  document.getElementById("licView").style.visibility="";
-  document.getElementById("licView").style.position="";
-  document.getElementById("licView").style.left="";
-  document.getElementById("certView").style.visibility="hidden";
-  document.getElementById("certView").style.position="absolute";
-  document.getElementById("certView").style.left="-9999px";
+  document.getElementById("licView").style.display="block";
+  document.getElementById("certView").style.display="none";
   document.getElementById("DLBTN_LIC").style.display="block";
   document.getElementById("DLBTN_CERT").style.display="none";
   document.getElementById("CM").style.display="flex";
@@ -333,20 +331,37 @@ async function downloadCertPDF() {
   var btn = document.getElementById("DLBTN_CERT");
   btn.textContent = "Generating..."; btn.disabled = true;
   try {
-    var docEl = document.querySelector(".cert");
-    if (!docEl) throw new Error("Certificate not found.");
-    await new Promise(function(r){ setTimeout(r, 400); });
-    var canvas = await html2canvas(docEl, {
+    var original = document.querySelector(".cert");
+    if (!original) throw new Error("Certificate not found.");
+
+    // Create off-screen container with explicit dimensions
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;left:0;top:0;width:794px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;";
+    document.body.appendChild(wrap);
+
+    // Clone certificate into it
+    var clone = original.cloneNode(true);
+    clone.style.cssText = "position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;";
+    wrap.appendChild(clone);
+
+    // Let browser paint it
+    await new Promise(function(r){ setTimeout(r, 600); });
+
+    var canvas = await html2canvas(clone, {
       scale: 1.5,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#0a1628",
       logging: false,
       width: 794,
-      height: docEl.scrollHeight || 1020,
+      height: clone.scrollHeight || 1020,
       windowWidth: 794
     });
+
+    document.body.removeChild(wrap);
+
     if (!canvas.width || !canvas.height) throw new Error("Canvas empty - please try again.");
+
     var pdf = new jspdf.jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
     var pdfW = pdf.internal.pageSize.getWidth();
     var pdfH = pdf.internal.pageSize.getHeight();
@@ -370,38 +385,40 @@ async function downloadLicPDF() {
     var backOrig  = document.getElementById("licBack");
     if (!frontOrig) throw new Error("License not found.");
 
-    // Clone both sides into a visible off-screen container
-    var container = document.createElement("div");
-    container.style.cssText = "position:fixed;left:-9999px;top:0;width:856px;z-index:-1;background:#0a1628;";
-    var front = frontOrig.cloneNode(true);
-    var back  = backOrig  ? backOrig.cloneNode(true) : null;
-    front.style.cssText = "width:856px;height:540px;position:relative;overflow:hidden;";
-    container.appendChild(front);
-    if (back) {
-      back.style.cssText = "width:856px;height:540px;position:relative;overflow:hidden;margin-top:4px;";
-      container.appendChild(back);
-    }
-    document.body.appendChild(container);
+    // Off-screen visible container
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;left:0;top:0;width:856px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;";
+    document.body.appendChild(wrap);
 
-    await new Promise(function(r){ setTimeout(r, 500); });
+    var front = frontOrig.cloneNode(true);
+    front.style.cssText = "position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;";
+    wrap.appendChild(front);
+
+    var back = backOrig ? backOrig.cloneNode(true) : null;
+    if (back) {
+      back.style.cssText = "position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;margin-top:4px;";
+      wrap.appendChild(back);
+    }
+
+    await new Promise(function(r){ setTimeout(r, 600); });
 
     var opts = { scale:2, useCORS:true, allowTaint:true, backgroundColor:"#0a1628", logging:false, width:856, height:540, windowWidth:856 };
     var c1 = await html2canvas(front, opts);
-    if (!c1.width || !c1.height) throw new Error("Canvas is empty. Please try again.");
+    if (!c1.width || !c1.height) throw new Error("Canvas empty - please try again.");
 
-    var pdf = new jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: [85.6, 54] });
-    pdf.addImage(c1.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
+    var pdf = new jspdf.jsPDF({ orientation:"landscape", unit:"mm", format:[85.6,54] });
+    pdf.addImage(c1.toDataURL("image/jpeg",0.95), "JPEG", 0, 0, 85.6, 54);
 
     if (back) {
+      pdf.addPage([85.6,54], "landscape");
       var c2 = await html2canvas(back, opts);
-      pdf.addPage([85.6, 54], "landscape");
-      pdf.addImage(c2.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 85.6, 54);
+      pdf.addImage(c2.toDataURL("image/jpeg",0.95), "JPEG", 0, 0, 85.6, 54);
     }
 
-    document.body.removeChild(container);
+    document.body.removeChild(wrap);
 
-    var name = (document.getElementById("LNAME") || {textContent:"License"}).textContent.trim();
-    pdf.save("WSF-License-" + name.replace(/\s+/g, "-") + ".pdf");
+    var name = (document.getElementById("LNAME")||{textContent:"License"}).textContent.trim();
+    pdf.save("WSF-License-" + name.replace(/\s+/g,"-") + ".pdf");
   } catch(e) {
     console.error("PDF error:", e);
     alert("PDF failed: " + e.message);
@@ -739,8 +756,8 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
   </div>
 
   <!-- CERTIFICATE VIEW -->
-  <div id="certView" style="visibility:hidden;position:absolute;left:-9999px;top:0">
-  <div class="cert">
+  <div id="certView" style="display:none">
+  <div class="cert" style="-webkit-transform:translateZ(0);transform:translateZ(0)">
     <div class="cert-border-outer"></div>
     <div class="cert-border-inner"></div>
     <div class="cert-corner tl"></div><div class="cert-corner tr"></div>
