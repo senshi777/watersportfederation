@@ -457,38 +457,55 @@ async function updateApp(id, status) {
   if (!app) return;
 
   try {
-    // Update application status
+    // If approving - handle trainer account first
+    if (status === 'approved') {
+
+      // Check if trainer with same email already exists
+      var checkRes = await fetch(SUPABASE_URL + '/rest/v1/trainers?email=eq.' + encodeURIComponent(app.email) + '&select=id,username,password', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Accept': 'application/json' }
+      });
+      var existing = checkRes.ok ? await checkRes.json() : [];
+
+      if (existing.length > 0) {
+        // Trainer account already exists - show existing credentials
+        showCreds(app.name, existing[0].username, existing[0].password);
+      } else {
+        // Create new trainer account
+        var username = makeUsername(app.name);
+        var password = generatePassword();
+
+        var r2 = await fetch(SUPABASE_URL + '/rest/v1/trainers', {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+          body: JSON.stringify({
+            name: app.name,
+            username: username,
+            password: password,
+            email: app.email,
+            discipline: app.discipline,
+            country: app.country,
+            stars: 3,
+            status: 'active',
+            created_at: new Date().toISOString()
+          })
+        });
+
+        if (!r2.ok) {
+          var errBody = await r2.text();
+          throw new Error('Could not create trainer account: ' + errBody);
+        }
+
+        showCreds(app.name, username, password);
+      }
+    }
+
+    // Update application status in Supabase
     var res = await fetch(SUPABASE_URL + '/rest/v1/trainer_applications?id=eq.' + id, {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status: status })
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-
-    // If approving: create trainer account in Supabase
-    if (status === 'approved') {
-      var username = makeUsername(app.name);
-      var password = generatePassword();
-
-      var r2 = await fetch(SUPABASE_URL + '/rest/v1/trainers', {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-        body: JSON.stringify({
-          name: app.name,
-          username: username,
-          password: password,
-          email: app.email,
-          discipline: app.discipline,
-          country: app.country,
-          stars: 3,
-          status: 'active',
-          created_at: new Date().toISOString()
-        })
-      });
-
-      // Show credentials to admin
-      showCreds(app.name, username, password);
-    }
+    if (!res.ok) throw new Error('Status update failed: HTTP ' + res.status);
 
     allApps = allApps.map(function(a){ return a.id === id ? Object.assign({}, a, {status: status}) : a; });
     var pending = allApps.filter(function(a){ return a.status === 'pending'; }).length;
