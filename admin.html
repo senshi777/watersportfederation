@@ -1,4 +1,3 @@
-<!-- WSF admin.html v2026-04-09 20:31:58 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WSF Admin Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--navy:#0a1628;--mid:#112240;--gold:#c9a84c;--gold2:#e8c97a;--white:#f8f6f0;--muted:#8899aa;--red:#ef4444}
@@ -14,7 +12,6 @@ body{font-family:'Barlow',sans-serif;background:var(--navy);color:var(--white);m
 nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
 .nb{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);text-decoration:none}
 .nbk{color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none}
-/* LOGIN */
 #loginWrap{min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;padding:2rem}
 .lbox{background:var(--mid);border:1px solid rgba(201,168,76,.25);padding:2.5rem;width:100%;max-width:380px}
 .lbox h2{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;margin-bottom:.3rem}
@@ -26,29 +23,25 @@ nav{background:rgba(10,22,40,.97);border-bottom:1px solid rgba(201,168,76,.2);pa
 .lbtn{width:100%;background:var(--gold);color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:.9rem;border:none;cursor:pointer;transition:background .3s;margin-top:.3rem}
 .lbtn:hover{background:var(--gold2)}
 .lerr{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:.8rem;padding:.6rem 1rem;margin-top:.8rem;display:none}
-/* ADMIN */
 #adminWrap{display:none;padding:2.5rem}
-.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem}
 .stag{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:.3rem}
 h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300}
 h1 strong{font-weight:700;color:var(--gold)}
-.logout{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;background:none;border:1px solid rgba(201,168,76,.25);color:var(--muted);padding:.4rem 1rem;cursor:pointer;transition:all .3s}
-.logout:hover{border-color:var(--gold);color:var(--gold)}
-/* FILTERS */
+.tbtn{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.35);color:var(--gold);padding:.5rem 1rem;cursor:pointer;transition:all .3s;position:relative}
+.tbtn:hover{background:rgba(201,168,76,.25)}
+.tbtn.active{background:rgba(201,168,76,.3)}
+.badge{display:inline-block;background:#ef4444;color:white;border-radius:50%;padding:0 5px;font-size:10px;margin-left:4px;min-width:18px;text-align:center;line-height:18px}
 .filters{display:flex;gap:.8rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
-.filters input{flex:1;min-width:200px;background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.6rem 1rem;font-family:'Barlow',sans-serif;font-size:.85rem;outline:none}
+.filters input,.filters select{background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.6rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;outline:none;cursor:pointer}
+.filters input{flex:1;min-width:200px}
 .filters input:focus{border-color:var(--gold)}
-.filters select{background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.6rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;outline:none;cursor:pointer}
-.filters select option{background:var(--mid)}
 .count{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:.12em;color:var(--muted)}
 .count span{color:var(--gold)}
-/* SELECT ALL */
 .bulk-bar{background:var(--mid);border:1px solid rgba(239,68,68,.2);padding:.8rem 1.2rem;margin-bottom:1rem;display:none;align-items:center;justify-content:space-between}
 .bulk-bar.active{display:flex}
 .bulk-label{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#f87171}
-.del-sel-btn{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;background:var(--red);color:white;border:none;padding:.45rem 1.2rem;cursor:pointer;transition:opacity .3s}
-.del-sel-btn:hover{opacity:.85}
-/* TABLE */
+.del-sel-btn{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;background:var(--red);color:white;border:none;padding:.45rem 1.2rem;cursor:pointer}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 thead tr{border-bottom:2px solid rgba(201,168,76,.2)}
@@ -62,120 +55,109 @@ td{padding:.8rem 1rem;font-size:.82rem;vertical-align:middle}
 .td-id{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;color:var(--gold);letter-spacing:.05em}
 .td-level{font-size:.75rem;color:var(--muted)}
 .td-date{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;color:var(--muted)}
-.td-status{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-.status-active{color:#4ade80}
-.status-expired{color:#f59e0b}
 .type-badge{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px}
 .type-lic{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
 .type-cert{background:rgba(21,101,192,.15);color:#7eb8f5;border:1px solid rgba(21,101,192,.3)}
-.del-btn{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:none;border:1px solid rgba(239,68,68,.3);color:#f87171;padding:.35rem .8rem;cursor:pointer;transition:all .3s}
-.del-btn:hover{background:rgba(239,68,68,.15);border-color:var(--red)}
+.del-btn{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:none;border:1px solid rgba(239,68,68,.3);color:#f87171;padding:.35rem .8rem;cursor:pointer}
+.del-btn:hover{background:rgba(239,68,68,.15)}
 .chk{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
-.empty{text-align:center;padding:3rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
-.loading{text-align:center;padding:3rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
-/* CONFIRM MODAL */
+.empty,.loading{text-align:center;padding:3rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
+.app-btn{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:none;padding:.35rem .8rem;cursor:pointer;margin:0 2px}
+.app-approve{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
+.app-approve:hover{background:rgba(74,222,128,.3)}
+.app-reject{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+.app-reject:hover{background:rgba(239,68,68,.2)}
+.app-reset{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
+.s-pending{color:#f59e0b;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.s-approved{color:#4ade80;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.s-rejected{color:#f87171;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .confirm-overlay{position:fixed;inset:0;background:rgba(5,13,26,.92);z-index:100;display:none;align-items:center;justify-content:center}
 .confirm-overlay.open{display:flex}
 .confirm-box{background:var(--mid);border:1px solid rgba(239,68,68,.3);padding:2rem;max-width:420px;width:90%}
 .confirm-box h3{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:600;color:#f87171;margin-bottom:.5rem}
 .confirm-box p{font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:1.5rem}
 .confirm-btns{display:flex;gap:.8rem}
-.confirm-del{flex:1;background:var(--red);color:white;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;border:none;padding:.8rem;cursor:pointer;transition:opacity .3s}
-.confirm-del:hover{opacity:.85}
-.confirm-del:disabled{opacity:.5;cursor:not-allowed}
-.confirm-cancel{flex:1;background:none;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;border:1px solid rgba(255,255,255,.2);padding:.8rem;cursor:pointer;transition:all .3s}
+.confirm-del{flex:1;background:var(--red);color:white;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;border:none;padding:.8rem;cursor:pointer}
+.confirm-cancel{flex:1;background:none;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;border:1px solid rgba(255,255,255,.2);padding:.8rem;cursor:pointer}
 .confirm-cancel:hover{background:rgba(255,255,255,.08)}
-.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--mid);border:1px solid rgba(201,168,76,.3);padding:.8rem 1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--white);z-index:200;opacity:0;transition:opacity .4s;pointer-events:none}
-.app-btn{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:none;padding:.35rem .8rem;cursor:pointer;transition:all .3s}
-.app-approve{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
-.app-approve:hover{background:rgba(74,222,128,.3)}
-.app-reject{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3)}
-.app-reject:hover{background:rgba(239,68,68,.2)}
-.status-pending{color:#f59e0b;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.status-approved{color:#4ade80;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.status-rejected{color:#f87171;font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--mid);border:1px solid rgba(201,168,76,.3);padding:.8rem 1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--white);z-index:200;opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 </style>
 </head>
 <body>
-
 <nav>
   <a href="index.html" class="nb">WSF · Admin Panel</a>
   <a href="index.html" class="nbk">← Back to site</a>
 </nav>
 
-<!-- LOGIN -->
 <div id="loginWrap">
   <div class="lbox">
     <h2>Admin <strong style="color:var(--gold)">Login</strong></h2>
     <p>Restricted to WSF administrators only</p>
-    <div class="fg"><label>Password</label><input type="password" id="adminPass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
-    <button class="lbtn" onclick="doAdminLogin()">Login</button>
+    <div class="fg">
+      <label>Password</label>
+      <input type="password" id="adminPass" placeholder="Enter admin password">
+    </div>
+    <button class="lbtn" id="loginBtn" onclick="doAdminLogin()">Login</button>
     <div id="loginErr" class="lerr">Incorrect password.</div>
   </div>
 </div>
 
-<!-- ADMIN PANEL -->
 <div id="adminWrap">
   <div class="top-bar">
     <div>
-      <span class="stag">WSF Registry</span>
-      <h1>Member <strong>Management</strong></h1>
+      <span class="stag">WSF Admin</span>
+      <h1>Admin <strong>Panel</strong></h1>
     </div>
-    <div style="display:flex;gap:1rem;align-items:center">
-      <button class="logout" onclick="refreshData()">↻ Refresh</button>
-      <button class="logout" onclick="doLogout()">Log Out</button>
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center">
+      <button class="tbtn active" id="btnMembers" onclick="showTab('members')">Members</button>
+      <button class="tbtn" id="btnApps" onclick="showTab('apps')">
+        Applications <span class="badge" id="appsBadge" style="display:none">0</span>
+      </button>
+      <button class="tbtn" onclick="refreshData()">&#8635; Refresh</button>
+      <button class="tbtn" onclick="doLogout()">Log Out</button>
     </div>
   </div>
 
+  <!-- MEMBERS SECTION -->
   <div id="membersSection">
-  <div class="filters">
-    <input type="text" id="searchInput" placeholder="Search name, cert ID..." oninput="filterTable()">
-    <select id="typeFilter" onchange="filterTable()">
-      <option value="">All Types</option>
-      <option value="cert">Certificates</option>
-      <option value="license">Licenses</option>
-    </select>
-    <select id="selAll" onchange="handleSelectAll(this.value)">
-      <option value="">Select...</option>
-      <option value="all">Select All</option>
-      <option value="none">Deselect All</option>
-    </select>
-    <div class="count">Showing <span id="countDisplay">0</span> records</div>
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="Search name, cert ID..." oninput="filterTable()">
+      <select id="typeFilter" onchange="filterTable()">
+        <option value="">All Types</option>
+        <option value="cert">Certificates</option>
+        <option value="license">Licenses</option>
+      </select>
+      <select id="selAll" onchange="handleSelectAll(this.value)">
+        <option value="">Select...</option>
+        <option value="all">Select All</option>
+        <option value="none">Deselect All</option>
+      </select>
+      <div class="count">Showing <span id="countDisplay">0</span> records</div>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+      <span class="bulk-label" id="bulkLabel">0 selected</span>
+      <button class="del-sel-btn" onclick="deleteSelected()">Delete Selected</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="center"><input type="checkbox" class="chk" id="checkAll" onchange="toggleAll(this.checked)"></th>
+            <th>Name</th><th>Type</th><th>Cert / License ID</th><th>Level</th>
+            <th>Issued</th><th>Expires</th><th>Trainer</th><th>Status</th>
+            <th class="center">Delete</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"><tr><td colspan="10" class="loading">Loading members...</td></tr></tbody>
+      </table>
+    </div>
   </div>
-
-  <div class="bulk-bar" id="bulkBar">
-    <span class="bulk-label" id="bulkLabel">0 selected</span>
-    <button class="del-sel-btn" onclick="deleteSelected()">Delete Selected</button>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th class="center"><input type="checkbox" class="chk" id="checkAll" onchange="toggleAll(this.checked)"></th>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Cert / License ID</th>
-          <th>Level / Specialty</th>
-          <th>Issued</th>
-          <th>Expires</th>
-          <th>Trainer</th>
-          <th>Status</th>
-          <th class="center">Delete</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody">
-        <tr><td colspan="10" class="loading">Loading members...</td></tr>
-      </tbody>
-    </table>
-  </div>
-  </div><!-- end membersSection -->
 
   <!-- APPLICATIONS SECTION -->
   <div id="appsSection" style="display:none">
     <div class="filters">
-      <select id="appStatusFilter" onchange="filterApps()" style="background:var(--mid);border:1px solid rgba(201,168,76,.2);color:var(--white);padding:.6rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;outline:none">
+      <select id="appStatusFilter" onchange="filterApps()">
         <option value="pending">Pending Review</option>
         <option value="approved">Approved</option>
         <option value="rejected">Rejected</option>
@@ -187,53 +169,36 @@ td{padding:.8rem 1rem;font-size:.82rem;vertical-align:middle}
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Country</th>
-            <th>Discipline</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th class="center" style="min-width:200px">Actions</th>
+            <th>Name</th><th>Email</th><th>Country</th><th>Discipline</th>
+            <th>Submitted</th><th>Status</th><th class="center">Actions</th>
           </tr>
         </thead>
-        <tbody id="appsTableBody">
-          <tr><td colspan="7" class="loading">Loading applications...</td></tr>
-        </tbody>
+        <tbody id="appsTableBody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
-
 </div>
 
-<!-- CONFIRM MODAL -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <h3>Confirm Delete</h3>
-    <p id="confirmMsg">Are you sure you want to delete this record? This cannot be undone.</p>
+    <p id="confirmMsg">Are you sure? This cannot be undone.</p>
     <div class="confirm-btns">
       <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
       <button class="confirm-del" id="confirmBtn" onclick="executeDelete()">Delete</button>
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-var SUPABASE_URL = "https://dxygivvyfwzsrexbtbnc.supabase.co";
-var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ";
-var ADMIN_PASS = "WSF@Admin2026";
-var db = null;
-var allMembers = [];
-var filtered = [];
-var pendingDeleteIds = [];
-var selectedIds = new Set();
+var SUPABASE_URL = 'https://dxygivvyfwzsrexbtbnc.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ';
+var ADMIN_PASS   = 'WSF@Admin2026';
+var allMembers = [], filtered = [], selectedIds = new Set(), pendingDeleteIds = [];
+var allApps = [], filteredApps = [];
 
-function getDb() {
-  if (!db) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  return db;
-}
-
+/* ── LOGIN ── */
 function doAdminLogin() {
   var pass = document.getElementById('adminPass').value;
   if (pass === ADMIN_PASS) {
@@ -245,46 +210,63 @@ function doAdminLogin() {
     document.getElementById('adminPass').value = '';
   }
 }
+document.getElementById('adminPass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doAdminLogin();
+});
 
 function doLogout() {
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('adminWrap').style.display = 'none';
   document.getElementById('adminPass').value = '';
   allMembers = []; filtered = []; selectedIds = new Set();
+  allApps = []; filteredApps = [];
 }
 
+/* ── TABS ── */
+function showTab(tab) {
+  document.getElementById('membersSection').style.display = tab === 'members' ? 'block' : 'none';
+  document.getElementById('appsSection').style.display   = tab === 'apps'    ? 'block' : 'none';
+  document.getElementById('btnMembers').classList.toggle('active', tab === 'members');
+  document.getElementById('btnApps').classList.toggle('active', tab === 'apps');
+  if (tab === 'apps' && !allApps.length) loadApps();
+}
+
+function refreshData() {
+  var current = document.getElementById('membersSection').style.display !== 'none' ? 'members' : 'apps';
+  if (current === 'members') loadMembers(); else loadApps();
+}
+
+/* ── MEMBERS ── */
 async function loadMembers() {
   document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" class="loading">Loading from Supabase...</td></tr>';
   try {
-    var res = await getDb().from('members').select('*').order('created_at', {ascending: false});
-    if (res.error) throw res.error;
-    allMembers = res.data || [];
+    var res = await fetch(SUPABASE_URL + '/rest/v1/members?order=created_at.desc', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    allMembers = await res.json();
     filterTable();
     showToast('Loaded ' + allMembers.length + ' records');
   } catch(e) {
-    document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" class="empty">Error loading: ' + e.message + '</td></tr>';
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" class="empty">Error: ' + e.message + '</td></tr>';
   }
 }
 
-function refreshData() { loadMembers(); }
+function isExpired(exp) {
+  if (!exp) return false;
+  var p = exp.split('/'); if (p.length !== 3) return false;
+  return new Date(p[2], p[1]-1, p[0]) < new Date();
+}
 
 function filterTable() {
   var q = document.getElementById('searchInput').value.toLowerCase();
   var type = document.getElementById('typeFilter').value;
   filtered = allMembers.filter(function(m) {
-    var matchQ = !q || (m.name||'').toLowerCase().includes(q) || (m.cert_id||'').toLowerCase().includes(q) || (m.level||'').toLowerCase().includes(q);
-    var matchType = !type || m.type === type;
-    return matchQ && matchType;
+    return (!q || (m.name||'').toLowerCase().includes(q) || (m.cert_id||'').toLowerCase().includes(q))
+        && (!type || m.type === type);
   });
   document.getElementById('countDisplay').textContent = filtered.length;
   renderTable();
-}
-
-function isExpired(exp) {
-  if (!exp) return false;
-  var parts = exp.split('/');
-  if (parts.length !== 3) return false;
-  return new Date(parts[2], parts[1]-1, parts[0]) < new Date();
 }
 
 function renderTable() {
@@ -292,169 +274,117 @@ function renderTable() {
     document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" class="empty">No records found</td></tr>';
     return;
   }
-  var html = filtered.map(function(m) {
-    var isChecked = selectedIds.has(m.id);
+  var rows = filtered.map(function(m) {
+    var isSelected = selectedIds.has(m.id);
     var expired = isExpired(m.expires);
     var badge = m.type === 'license'
-      ? '<span class="type-badge type-lic">License</span>'
+      ? '<span class="type-badge type-lic">Lic</span>'
       : '<span class="type-badge type-cert">Cert</span>';
-    return '<tr class="'+(isChecked?'selected':'')+'" id="row-'+m.id+'">' +
-      '<td class="center"><input type="checkbox" class="chk" '+(isChecked?'checked':'')+' onchange="toggleRow(\''+m.id+'\',this.checked)"></td>' +
-      '<td class="td-name">'+m.name+'</td>' +
-      '<td>'+badge+'</td>' +
-      '<td class="td-id">'+m.cert_id+'</td>' +
-      '<td class="td-level">'+(m.level||'-')+'</td>' +
-      '<td class="td-date">'+(m.issued||'-')+'</td>' +
-      '<td class="td-date">'+(m.expires||'-')+'</td>' +
-      '<td class="td-date">'+(m.trainer_name||'-')+'</td>' +
-      '<td class="td-status '+(expired?'status-expired':'status-active')+'">'+(expired?'Expired':'Active')+'</td>' +
-      '<td class="center"><button class="del-btn" onclick="confirmDelete([\''+m.id+'\'],\''+m.name+'\')">Delete</button></td>' +
-    '</tr>';
-  }).join('');
-  document.getElementById('tableBody').innerHTML = html;
-  updateBulkBar();
+    var statusColor = expired ? '#f59e0b' : '#4ade80';
+    var statusText  = expired ? 'EXPIRED' : 'ACTIVE';
+    var row = document.createElement('tr');
+    row.id = 'row-' + m.id;
+    if (isSelected) row.classList.add('selected');
+    row.innerHTML = [
+      '<td class="center"><input type="checkbox" class="chk"' + (isSelected ? ' checked' : '') + '></td>',
+      '<td class="td-name">' + (m.name||'-') + '</td>',
+      '<td>' + badge + '</td>',
+      '<td class="td-id">' + (m.cert_id||'-') + '</td>',
+      '<td class="td-level">' + (m.level||'-') + '</td>',
+      '<td class="td-date">' + (m.issued||'-') + '</td>',
+      '<td class="td-date">' + (m.expires||'-') + '</td>',
+      '<td class="td-date">' + (m.trainer_name||'-') + '</td>',
+      '<td style="font-family:Barlow Condensed,sans-serif;font-size:.65rem;font-weight:700;color:' + statusColor + '">' + statusText + '</td>',
+      '<td class="center"><button class="del-btn">Delete</button></td>'
+    ].join('');
+    // Add event listeners properly to avoid quote escaping issues
+    row.querySelector('.chk').addEventListener('change', function(e) { toggleRow(m.id, e.target.checked); });
+    row.querySelector('.del-btn').addEventListener('click', function() { confirmDelete([m.id], m.name); });
+    return row;
+  });
+  var tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  rows.forEach(function(r) { tbody.appendChild(r); });
 }
 
 function toggleRow(id, checked) {
-  if (checked) selectedIds.add(id);
-  else selectedIds.delete(id);
-  var row = document.getElementById('row-'+id);
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  var row = document.getElementById('row-' + id);
   if (row) row.classList.toggle('selected', checked);
   updateBulkBar();
 }
-
 function toggleAll(checked) {
   filtered.forEach(function(m) {
-    if (checked) selectedIds.add(m.id);
-    else selectedIds.delete(m.id);
-    var row = document.getElementById('row-'+m.id);
-    if (row) {
-      row.classList.toggle('selected', checked);
-      var chk = row.querySelector('.chk');
-      if (chk) chk.checked = checked;
-    }
+    if (checked) selectedIds.add(m.id); else selectedIds.delete(m.id);
+    var row = document.getElementById('row-' + m.id);
+    if (row) { row.classList.toggle('selected', checked); var c = row.querySelector('.chk'); if(c) c.checked = checked; }
   });
   updateBulkBar();
 }
-
 function handleSelectAll(val) {
-  if (val === 'all') toggleAll(true);
-  else if (val === 'none') { toggleAll(false); selectedIds.clear(); }
+  if (val === 'all') toggleAll(true); else if (val === 'none') { toggleAll(false); selectedIds.clear(); }
   document.getElementById('selAll').value = '';
 }
-
 function updateBulkBar() {
   var n = selectedIds.size;
-  var bar = document.getElementById('bulkBar');
-  bar.classList.toggle('active', n > 0);
+  document.getElementById('bulkBar').classList.toggle('active', n > 0);
   document.getElementById('bulkLabel').textContent = n + ' record' + (n===1?'':'s') + ' selected';
 }
-
 function confirmDelete(ids, name) {
   pendingDeleteIds = ids;
-  var msg = ids.length === 1
-    ? 'Delete record for <strong style="color:var(--white)">' + name + '</strong>? This cannot be undone.'
-    : 'Delete <strong style="color:var(--white)">' + ids.length + ' records</strong>? This cannot be undone.';
-  document.getElementById('confirmMsg').innerHTML = msg;
+  document.getElementById('confirmMsg').innerHTML = ids.length === 1
+    ? 'Delete <strong style="color:var(--white)">' + name + '</strong>? Cannot be undone.'
+    : 'Delete <strong style="color:var(--white)">' + ids.length + ' records</strong>? Cannot be undone.';
   document.getElementById('confirmOverlay').classList.add('open');
 }
-
-function deleteSelected() {
-  if (!selectedIds.size) return;
-  confirmDelete(Array.from(selectedIds), selectedIds.size + ' selected records');
-}
-
-function closeConfirm() {
-  document.getElementById('confirmOverlay').classList.remove('open');
-  pendingDeleteIds = [];
-}
-
+function deleteSelected() { if (selectedIds.size) confirmDelete(Array.from(selectedIds), selectedIds.size + ' selected'); }
+function closeConfirm() { document.getElementById('confirmOverlay').classList.remove('open'); pendingDeleteIds = []; }
 async function executeDelete() {
   var btn = document.getElementById('confirmBtn');
   btn.textContent = 'Deleting...'; btn.disabled = true;
   var errors = [];
-  // Delete each record individually using fetch so we see exact errors
   for (var i = 0; i < pendingDeleteIds.length; i++) {
     var id = pendingDeleteIds[i];
     try {
-      var res = await fetch(
-        SUPABASE_URL + '/rest/v1/members?id=eq.' + id,
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          }
-        }
-      );
-      if (!res.ok) {
-        var body = await res.text();
-        errors.push('ID ' + id + ': HTTP ' + res.status + ' - ' + body);
-      } else {
-        allMembers = allMembers.filter(function(m) { return m.id !== id; });
-        selectedIds.delete(id);
-      }
-    } catch(e) {
-      errors.push('ID ' + id + ': ' + e.message);
-    }
+      var res = await fetch(SUPABASE_URL + '/rest/v1/members?id=eq.' + id, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' }
+      });
+      if (!res.ok) errors.push('HTTP ' + res.status);
+      else { allMembers = allMembers.filter(function(m){ return m.id !== id; }); selectedIds.delete(id); }
+    } catch(e) { errors.push(e.message); }
   }
   closeConfirm();
   filterTable();
-  if (errors.length) {
-    alert('Some deletes failed:\n' + errors.join('\n') + '\n\nYou may need to add a DELETE policy in Supabase. Run this SQL:\nCREATE POLICY \"Allow delete\" ON members FOR DELETE TO anon USING (true);');
-  } else {
-    showToast('Deleted ' + pendingDeleteIds.length + ' record(s)');
-  }
+  if (errors.length) alert('Some deletes failed: ' + errors.join(', ') + '. Make sure the DELETE policy exists in Supabase.');
+  else showToast('Deleted ' + pendingDeleteIds.length + ' record(s)');
   pendingDeleteIds = [];
   btn.textContent = 'Delete'; btn.disabled = false;
 }
 
-function showToast(msg) {
-  var t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, 3000);
-}
-
-document.getElementById('adminPass').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') doAdminLogin();
-});
-
-/* ── APPLICATIONS TAB ── */
-var allApps = [], filteredApps = [];
-
-function showTab(tab) {
-  document.getElementById('membersSection').style.display = tab === 'members' ? 'block' : 'none';
-  document.getElementById('appsSection').style.display   = tab === 'apps'    ? 'block' : 'none';
-  document.getElementById('btnMembers').style.background = tab === 'members' ? 'rgba(201,168,76,.3)' : '';
-  document.getElementById('btnApps').style.background    = tab === 'apps'    ? 'rgba(201,168,76,.3)' : '';
-  if (tab === 'apps' && !allApps.length) loadApps();
-}
-
+/* ── APPLICATIONS ── */
 async function loadApps() {
-  document.getElementById('appsTableBody').innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
+  document.getElementById('appsTableBody').innerHTML = '<tr><td colspan="7" class="loading">Loading applications...</td></tr>';
   try {
-    var res = await fetch('https://dxygivvyfwzsrexbtbnc.supabase.co/rest/v1/trainer_applications?order=created_at.desc', {
-      headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ', 'Accept': 'application/json' }
+    var res = await fetch(SUPABASE_URL + '/rest/v1/trainer_applications?order=created_at.desc', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Accept': 'application/json' }
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status + '. Run the SQL to create the trainer_applications table.');
     allApps = await res.json();
-    // Update badge with pending count
-    var pending = allApps.filter(function(a){return a.status==='pending';}).length;
+    var pending = allApps.filter(function(a){ return a.status === 'pending'; }).length;
     var badge = document.getElementById('appsBadge');
-    if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline'; }
-    else badge.style.display = 'none';
+    badge.textContent = pending;
+    badge.style.display = pending > 0 ? 'inline-block' : 'none';
     filterApps();
     showToast('Loaded ' + allApps.length + ' applications');
   } catch(e) {
-    document.getElementById('appsTableBody').innerHTML = '<tr><td colspan="7" class="empty">Error: ' + e.message + '. Run the SQL to create the trainer_applications table first.</td></tr>';
+    document.getElementById('appsTableBody').innerHTML = '<tr><td colspan="7" class="empty">' + e.message + '</td></tr>';
   }
 }
 
 function filterApps() {
   var status = document.getElementById('appStatusFilter').value;
-  filteredApps = status ? allApps.filter(function(a){return a.status===status;}) : allApps.slice();
+  filteredApps = status ? allApps.filter(function(a){ return a.status === status; }) : allApps.slice();
   document.getElementById('appsCountDisplay').textContent = filteredApps.length;
   renderApps();
 }
@@ -464,46 +394,58 @@ function renderApps() {
     document.getElementById('appsTableBody').innerHTML = '<tr><td colspan="7" class="empty">No applications found</td></tr>';
     return;
   }
-  document.getElementById('appsTableBody').innerHTML = filteredApps.map(function(a) {
-    var statusClass = 'status-' + (a.status || 'pending');
-    var actions = a.status === 'pending'
-      ? '<button class="app-btn app-approve" onclick="updateAppStatus('' + a.id + '','approved')">Approve</button> <button class="app-btn app-reject" onclick="updateAppStatus('' + a.id + '','rejected')">Reject</button>'
-      : '<button class="app-btn" onclick="updateAppStatus('' + a.id + '','pending')" style="background:rgba(201,168,76,.1);color:#c9a84c;border:1px solid rgba(201,168,76,.3)">Reset</button>';
-    var date = a.submitted_at ? a.submitted_at.split('T')[0] : (a.created_at || '-').split('T')[0];
-    return '<tr>' +
-      '<td class="td-name">' + (a.name||'-') + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + (a.email||'-') + '</td>' +
-      '<td class="td-date">' + (a.country||'-') + '</td>' +
-      '<td class="td-level">' + (a.discipline||'-') + '</td>' +
-      '<td class="td-date">' + date + '</td>' +
-      '<td><span class="' + statusClass + '">' + (a.status||'pending') + '</span></td>' +
-      '<td class="center" style="white-space:nowrap">' + actions + '</td>' +
-    '</tr>';
-  }).join('');
+  var rows = filteredApps.map(function(a) {
+    var sc = 's-' + (a.status || 'pending');
+    var date = (a.submitted_at || a.created_at || '').split('T')[0] || '-';
+    var row = document.createElement('tr');
+    row.innerHTML = [
+      '<td class="td-name">' + (a.name||'-') + '</td>',
+      '<td style="font-size:.75rem;color:var(--muted)">' + (a.email||'-') + '</td>',
+      '<td class="td-date">' + (a.country||'-') + '</td>',
+      '<td class="td-level">' + (a.discipline||'-') + '</td>',
+      '<td class="td-date">' + date + '</td>',
+      '<td><span class="' + sc + '">' + (a.status||'pending') + '</span></td>',
+      '<td class="center" style="white-space:nowrap">' +
+        (a.status === 'pending'
+          ? '<button class="app-btn app-approve">Approve</button> <button class="app-btn app-reject">Reject</button>'
+          : '<button class="app-btn app-reset">Reset</button>') +
+      '</td>'
+    ].join('');
+    // Add event listeners - no quote issues
+    if (a.status === 'pending') {
+      row.querySelector('.app-approve').addEventListener('click', function() { updateApp(a.id, 'approved'); });
+      row.querySelector('.app-reject').addEventListener('click', function() { updateApp(a.id, 'rejected'); });
+    } else {
+      row.querySelector('.app-reset').addEventListener('click', function() { updateApp(a.id, 'pending'); });
+    }
+    return row;
+  });
+  var tbody = document.getElementById('appsTableBody');
+  tbody.innerHTML = '';
+  rows.forEach(function(r) { tbody.appendChild(r); });
 }
 
-async function updateAppStatus(id, status) {
+async function updateApp(id, status) {
   try {
-    var res = await fetch('https://dxygivvyfwzsrexbtbnc.supabase.co/rest/v1/trainer_applications?id=eq.' + id, {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/trainer_applications?id=eq.' + id, {
       method: 'PATCH',
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eWdpdnZ5Znd6c3JleGJ0Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTA2MjIsImV4cCI6MjA5MTIyNjYyMn0.Ly-k3BUqiJTq-WeZ6m2rL64Ay8jucnzBRjxodm1merQ',
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status: status })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    // Update local array
-    allApps = allApps.map(function(a){ return a.id===id ? Object.assign({},a,{status:status}) : a; });
-    filterApps();
-    // Update badge
-    var pending = allApps.filter(function(a){return a.status==='pending';}).length;
+    allApps = allApps.map(function(a){ return a.id === id ? Object.assign({}, a, {status: status}) : a; });
+    var pending = allApps.filter(function(a){ return a.status === 'pending'; }).length;
     var badge = document.getElementById('appsBadge');
-    badge.textContent = pending; badge.style.display = pending > 0 ? 'inline' : 'none';
-    showToast(status === 'approved' ? 'Trainer approved!' : status === 'rejected' ? 'Application rejected' : 'Status reset');
+    badge.textContent = pending; badge.style.display = pending > 0 ? 'inline-block' : 'none';
+    filterApps();
+    showToast(status === 'approved' ? '&#10003; Trainer approved!' : status === 'rejected' ? 'Application rejected' : 'Reset to pending');
   } catch(e) { alert('Update failed: ' + e.message); }
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.innerHTML = msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3000);
 }
 </script>
 </body>
