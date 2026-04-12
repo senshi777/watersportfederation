@@ -348,59 +348,116 @@ function closeCertModal(){
   document.body.style.overflow='';
 }
 
-async function downloadCertPDF(){
-  var btn=document.getElementById('DLBTN_CERT');
-  btn.textContent='Generating...'; btn.disabled=true;
-  try{
-    var original=document.querySelector('.cert');
-    if(!original) throw new Error('Certificate not found');
-    var wrap=document.createElement('div');
-    wrap.style.cssText='position:fixed;left:0;top:0;width:794px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;';
-    var clone=original.cloneNode(true);
-    clone.style.cssText='position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;';
-    wrap.appendChild(clone);
+async function downloadCertPDF() {
+  var btn = document.getElementById('DLBTN_CERT');
+  btn.textContent = 'Generating...'; btn.disabled = true;
+  try {
+    var original = document.querySelector('.cert');
+    if (!original) throw new Error('Certificate not found');
+
+    // Create off-screen container at FULL SIZE - no transforms
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1020px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;background:#0a1628;';
     document.body.appendChild(wrap);
-    await new Promise(function(r){setTimeout(r,600);});
-    var canvas=await html2canvas(clone,{scale:1.5,useCORS:true,allowTaint:true,backgroundColor:'#0a1628',logging:false,width:794,height:clone.scrollHeight||1020,windowWidth:794});
+
+    // Clone and force full size - strip any mobile scaling
+    var clone = original.cloneNode(true);
+    clone.style.cssText = 'position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;transform:none;-webkit-transform:none;';
+    wrap.appendChild(clone);
+
+    // Wait for render
+    await new Promise(function(r){ setTimeout(r, 600); });
+
+    var canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#0a1628',
+      logging: false,
+      width: 794,
+      height: clone.scrollHeight || 1020,
+      windowWidth: 794,
+      x: 0,
+      y: 0
+    });
+
     document.body.removeChild(wrap);
-    if(!canvas.width||!canvas.height) throw new Error('Canvas empty');
-    var pdf=new jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    var pW=pdf.internal.pageSize.getWidth(), pH=pdf.internal.pageSize.getHeight();
-    var ratio=Math.min(pW/(canvas.width/3.7795),pH/(canvas.height/3.7795));
-    var w=(canvas.width/3.7795)*ratio, h=(canvas.height/3.7795)*ratio;
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.93),'JPEG',(pW-w)/2,(pH-h)/2,w,h);
-    var name=(document.getElementById('CNME')||{textContent:'Certificate'}).textContent.trim();
-    savePDF(pdf,'WSF-Certificate-'+name.replace(/\s+/g,'-')+'.pdf');
-  }catch(e){console.error(e);alert('PDF failed: '+e.message);}
-  btn.textContent='Download Certificate PDF'; btn.disabled=false;
+
+    if (!canvas.width || !canvas.height) throw new Error('Canvas empty - please try again.');
+
+    // A4: 210 x 297 mm
+    var pdf = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    var pdfW = pdf.internal.pageSize.getWidth();
+    var pdfH = pdf.internal.pageSize.getHeight();
+    // Fit cert to full A4 width
+    var ratio = pdfW / (canvas.width / 3.7795);
+    var w = pdfW;
+    var h = (canvas.height / 3.7795) * ratio;
+    // Center vertically if shorter than page
+    var yOffset = h < pdfH ? (pdfH - h) / 2 : 0;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, yOffset, w, h);
+    var name = (document.getElementById('CNME') || {textContent:'Certificate'}).textContent.trim();
+    savePDF(pdf, 'WSF-Certificate-' + name.replace(/\s+/g, '-') + '.pdf');
+  } catch(e) {
+    console.error('PDF error:', e);
+    alert('PDF failed: ' + e.message);
+  }
+  btn.textContent = 'Download Certificate PDF'; btn.disabled = false;
 }
 
-async function downloadLicPDF(){
-  var btn=document.getElementById('DLBTN_LIC');
-  btn.textContent='Generating...'; btn.disabled=true;
-  try{
-    var fO=document.getElementById('licFront'),bO=document.getElementById('licBack');
-    if(!fO) throw new Error('License not found');
-    var wrap=document.createElement('div');
-    wrap.style.cssText='position:fixed;left:0;top:0;width:856px;height:1px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;';
-    var front=fO.cloneNode(true);
-    front.style.cssText='position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;';
-    wrap.appendChild(front);
-    var back=bO?bO.cloneNode(true):null;
-    if(back){back.style.cssText='position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;margin-top:4px;';wrap.appendChild(back);}
+async function downloadLicPDF() {
+  var btn = document.getElementById('DLBTN_LIC');
+  btn.textContent = 'Generating...'; btn.disabled = true;
+  try {
+    var fO = document.getElementById('licFront');
+    var bO = document.getElementById('licBack');
+    if (!fO) throw new Error('License not found');
+
+    // Clone front at full 856x540 - strip transforms
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:0;top:0;width:856px;height:544px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;background:#0a1628;';
     document.body.appendChild(wrap);
-    await new Promise(function(r){setTimeout(r,600);});
-    var opts={scale:2,useCORS:true,allowTaint:true,backgroundColor:'#0a1628',logging:false,width:856,height:540,windowWidth:856};
-    var c1=await html2canvas(front,opts);
-    if(!c1.width||!c1.height) throw new Error('Canvas empty');
-    var pdf=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:[85.6,54]});
-    pdf.addImage(c1.toDataURL('image/jpeg',0.95),'JPEG',0,0,85.6,54);
-    if(back){pdf.addPage([85.6,54],'landscape');var c2=await html2canvas(back,opts);pdf.addImage(c2.toDataURL('image/jpeg',0.95),'JPEG',0,0,85.6,54);}
+
+    var front = fO.cloneNode(true);
+    front.style.cssText = 'position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;transform:none;-webkit-transform:none;';
+    wrap.appendChild(front);
+
+    var back = bO ? bO.cloneNode(true) : null;
+    if (back) {
+      back.style.cssText = 'position:relative;width:856px;height:540px;display:block;visibility:visible;overflow:hidden;transform:none;-webkit-transform:none;margin-top:4px;';
+      wrap.appendChild(back);
+    }
+
+    await new Promise(function(r){ setTimeout(r, 600); });
+
+    var opts = {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#0a1628', logging: false,
+      width: 856, height: 540, windowWidth: 856, x: 0, y: 0
+    };
+
+    var c1 = await html2canvas(front, opts);
+    if (!c1.width || !c1.height) throw new Error('Canvas empty');
+
+    // Credit card size: 85.6 x 54 mm
+    var pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+    pdf.addImage(c1.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, 85.6, 54);
+
+    if (back) {
+      pdf.addPage([85.6, 54], 'landscape');
+      var c2 = await html2canvas(back, opts);
+      pdf.addImage(c2.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, 85.6, 54);
+    }
+
     document.body.removeChild(wrap);
-    var name=(document.getElementById('LNAME')||{textContent:'License'}).textContent.trim();
-    savePDF(pdf,'WSF-License-'+name.replace(/\s+/g,'-')+'.pdf');
-  }catch(e){console.error(e);alert('PDF failed: '+e.message);}
-  btn.textContent='Download License PDF'; btn.disabled=false;
+
+    var name = (document.getElementById('LNAME') || {textContent:'License'}).textContent.trim();
+    savePDF(pdf, 'WSF-License-' + name.replace(/\s+/g, '-') + '.pdf');
+  } catch(e) {
+    console.error('PDF error:', e);
+    alert('PDF failed: ' + e.message);
+  }
+  btn.textContent = 'Download License PDF'; btn.disabled = false;
 }
 </script>
 
