@@ -123,30 +123,46 @@ async function saveToSupabase(data){
   else console.log('Saved:',data.no);
 }
 
-function doLogin(){
+async function doLogin(){
   var u=document.getElementById('LU').value.trim().toLowerCase();
-  var p=document.getElementById('LP').value;
+  var pw=document.getElementById('LP').value;
+  var btn=document.querySelector('.lbtn');
+  btn.textContent='Logging in...'; btn.disabled=true;
+  // Check hardcoded trainers first
   var t=TRAINERS[u];
-  if(t&&t.password===p){
-    currentTrainer=t;
-    document.getElementById('LS').style.display='none';
-    document.getElementById('PS').style.display='block';
-    document.getElementById('WN').textContent=t.name;
-    var s=''; for(var i=0;i<(t.stars||0);i++) s+='\u2605';
-    document.getElementById('PORTALSTARS').innerHTML=s;
-    var now=new Date();
-    var dd=String(now.getDate()).padStart(2,'0');
-    var mm=String(now.getMonth()+1).padStart(2,'0');
-    var ds=dd+'/'+mm+'/'+now.getFullYear();
-    document.getElementById('FD').value=ds;
-    document.getElementById('LD').value=ds;
-    document.getElementById('FC').value=genID();
-    document.getElementById('LC').value=genID();
-    loadTrainerPhoto();
-  } else {
-    document.getElementById('LE').style.display='block';
-    document.getElementById('LP').value='';
-  }
+  if(t&&t.password===pw){ loginSuccess(t); btn.textContent='Login to Portal'; btn.disabled=false; return; }
+  // Check Supabase trainers table
+  try {
+    var db=getDb();
+    if(db){
+      var res=await db.from('trainers').select('*').eq('username',u).single();
+      if(res.data&&!res.error&&res.data.password===pw&&res.data.status==='active'){
+        loginSuccess({name:res.data.name,no:res.data.trainer_no||'WSF-T-'+res.data.id.slice(0,8).toUpperCase(),stars:res.data.stars||3,photo:null});
+        btn.textContent='Login to Portal'; btn.disabled=false; return;
+      }
+    }
+  } catch(e){ console.warn('Supabase login:',e.message); }
+  document.getElementById('LE').style.display='block';
+  document.getElementById('LP').value='';
+  btn.textContent='Login to Portal'; btn.disabled=false;
+}
+
+function loginSuccess(t){
+  currentTrainer=t;
+  document.getElementById('LS').style.display='none';
+  document.getElementById('PS').style.display='block';
+  document.getElementById('WN').textContent=t.name;
+  var s=''; for(var i=0;i<(t.stars||0);i++) s+='\u2605';
+  document.getElementById('PORTALSTARS').innerHTML=s;
+  var now=new Date();
+  var dd=String(now.getDate()).padStart(2,'0');
+  var mm=String(now.getMonth()+1).padStart(2,'0');
+  var ds=dd+'/'+mm+'/'+now.getFullYear();
+  document.getElementById('FD').value=ds;
+  document.getElementById('LD').value=ds;
+  document.getElementById('FC').value=genID();
+  document.getElementById('LC').value=genID();
+  loadTrainerPhoto();
 }
 
 function doLogout(){
