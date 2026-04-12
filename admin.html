@@ -179,6 +179,20 @@ td{padding:.8rem 1rem;font-size:.82rem;vertical-align:middle}
   </div>
 </div>
 
+<!-- CREDENTIALS MODAL -->
+<div class="confirm-overlay" id="credsOverlay" style="z-index:150">
+  <div class="confirm-box" style="border-color:rgba(201,168,76,.4);max-width:460px">
+    <h3 style="color:var(--gold);margin-bottom:.5rem">&#10003; Trainer Account Created</h3>
+    <p style="color:var(--muted);margin-bottom:1.2rem;font-size:.82rem">Share these credentials with the trainer. They can login at trainer-portal.html</p>
+    <div id="credsContent" style="background:var(--navy);border:1px solid rgba(201,168,76,.25);padding:1.2rem;margin-bottom:1rem;font-family:'Barlow Condensed',sans-serif;line-height:2.2;border-radius:2px"></div>
+    <div style="display:flex;gap:.8rem">
+      <button class="confirm-del" style="background:var(--gold);color:var(--navy);flex:1" onclick="copyCreds()">&#128203; Copy Credentials</button>
+      <button class="confirm-cancel" style="flex:1" onclick="document.getElementById('credsOverlay').classList.remove('open')">Close</button>
+    </div>
+    <div id="copyMsg" style="display:none;color:#4ade80;font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin-top:.6rem;text-align:center">&#10003; Copied to clipboard!</div>
+  </div>
+</div>
+
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <h3>Confirm Delete</h3>
