@@ -371,17 +371,14 @@ async function downloadCertPDF() {
     var original = document.querySelector('.cert');
     if (!original) throw new Error('Certificate not found');
 
-    // Create off-screen container at FULL SIZE - no transforms
+    // Clone at full size off-screen — strip any CSS transforms
     var wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1020px;overflow:visible;z-index:-9999;opacity:0;pointer-events:none;background:#0a1628;';
-    document.body.appendChild(wrap);
-
-    // Clone and force full size - strip any mobile scaling
     var clone = original.cloneNode(true);
     clone.style.cssText = 'position:relative;width:794px;min-height:1020px;background:linear-gradient(160deg,#0a1628 0%,#0d1f3c 40%,#0a1628 100%);display:block;visibility:visible;overflow:hidden;transform:none;-webkit-transform:none;';
     wrap.appendChild(clone);
+    document.body.appendChild(wrap);
 
-    // Wait for render
     await new Promise(function(r){ setTimeout(r, 600); });
 
     var canvas = await html2canvas(clone, {
@@ -393,25 +390,27 @@ async function downloadCertPDF() {
       width: 794,
       height: clone.scrollHeight || 1020,
       windowWidth: 794,
-      x: 0,
-      y: 0
+      x: 0, y: 0
     });
 
     document.body.removeChild(wrap);
 
     if (!canvas.width || !canvas.height) throw new Error('Canvas empty - please try again.');
 
-    // A4: 210 x 297 mm
-    var pdf = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    var pdfW = pdf.internal.pageSize.getWidth();
-    var pdfH = pdf.internal.pageSize.getHeight();
-    // Fit cert to full A4 width
-    var ratio = pdfW / (canvas.width / 3.7795);
-    var w = pdfW;
-    var h = (canvas.height / 3.7795) * ratio;
-    // Center vertically if shorter than page
-    var yOffset = h < pdfH ? (pdfH - h) / 2 : 0;
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, yOffset, w, h);
+    // Convert px to mm (1px = 0.264583mm at 96dpi)
+    var pxToMm = 0.264583;
+    var certW = canvas.width  / 2 * pxToMm;  // divide by scale(2)
+    var certH = canvas.height / 2 * pxToMm;
+
+    // Create PDF exactly the size of the certificate — NO white borders
+    var pdf = new jspdf.jsPDF({
+      orientation: certH > certW ? 'portrait' : 'landscape',
+      unit: 'mm',
+      format: [certW, certH]
+    });
+
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, certW, certH);
+
     var name = (document.getElementById('CNME') || {textContent:'Certificate'}).textContent.trim();
     savePDF(pdf, 'WSF-Certificate-' + name.replace(/\s+/g, '-') + '.pdf');
   } catch(e) {
