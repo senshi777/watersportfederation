@@ -473,12 +473,7 @@ async function updateApp(id, status) {
       });
 
       // Show credentials to admin
-      alert('Trainer account created!\n\n' +
-        'Name: ' + app.name + '\n' +
-        'Username: ' + username + '\n' +
-        'Password: ' + password + '\n\n' +
-        'Please share these credentials with the trainer.\n' +
-        'They can login at: watersportfederation.org/trainer-portal.html');
+      showCreds(app.name, username, password);
     }
 
     allApps = allApps.map(function(a){ return a.id === id ? Object.assign({}, a, {status: status}) : a; });
@@ -489,6 +484,37 @@ async function updateApp(id, status) {
     if (status !== 'approved') showToast(status === 'rejected' ? 'Application rejected' : 'Reset to pending');
 
   } catch(e) { alert('Update failed: ' + e.message); }
+}
+
+var lastCreds = '';
+
+function showCreds(name, username, password) {
+  lastCreds = 'Name: ' + name + '\nUsername: ' + username + '\nPassword: ' + password + '\nLogin: https://watersportfederation.org/trainer-portal.html';
+  document.getElementById('credsContent').innerHTML =
+    '<div style="color:var(--muted);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.3rem">Trainer Name</div>' +
+    '<div style="color:var(--white);font-size:.95rem;margin-bottom:.8rem">' + name + '</div>' +
+    '<div style="color:var(--muted);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.3rem">Username</div>' +
+    '<div style="color:var(--gold);font-size:1rem;font-weight:700;letter-spacing:.05em;margin-bottom:.8rem;user-select:all">' + username + '</div>' +
+    '<div style="color:var(--muted);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.3rem">Password</div>' +
+    '<div style="color:var(--gold);font-size:1rem;font-weight:700;letter-spacing:.05em;user-select:all">' + password + '</div>';
+  document.getElementById('credsOverlay').classList.add('open');
+  document.getElementById('copyMsg').style.display = 'none';
+}
+
+function copyCreds() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(lastCreds).then(function() {
+      document.getElementById('copyMsg').style.display = 'block';
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = lastCreds;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('copyMsg').style.display = 'block';
+  }
 }
 
 function showToast(msg) {
